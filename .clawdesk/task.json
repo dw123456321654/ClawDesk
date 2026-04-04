@@ -1,0 +1,67 @@
+{
+  "version": "1.0.0",
+  "projectPath": "D:/Projects/ClawDesk",
+  "projectName": "ClawDesk",
+  "task": {
+    "taskId": "task-20260404-clawdesk-mvp",
+    "description": "开发 ClawDesk 桌面应用 MVP 版本",
+    "status": "in_progress",
+    "currentStep": 4,
+    "totalSteps": 5,
+    "createdAt": "2026-04-04T10:00:00+08:00",
+    "updatedAt": "2026-04-04T12:30:00+08:00",
+    "checkpoints": [
+      {
+        "step": 1,
+        "title": "项目框架搭建",
+        "status": "completed",
+        "completedAt": "2026-04-04T11:45:00+08:00",
+        "summary": "项目框架搭建完成，包含 Vue 3 + TypeScript + Naive UI 前端框架和 Tauri Rust 后端框架"
+      },
+      {
+        "step": 2,
+        "title": "服务管理 API 实现",
+        "status": "completed",
+        "completedAt": "2026-04-04T12:02:00+08:00",
+        "summary": "服务管理 API 完成，包含启动/停止/状态查询功能"
+      },
+      {
+        "step": 3,
+        "title": "项目级检查点系统",
+        "status": "completed",
+        "completedAt": "2026-04-04T12:30:00+08:00",
+        "summary": "项目级检查点系统完成，包含检查点文件、任务扫描、恢复弹窗"
+      },
+      {
+        "step": 4,
+        "title": "角色系统实现",
+        "status": "pending",
+        "summary": "创建角色 Store、角色选择面板、角色切换功能"
+      },
+      {
+        "step": 5,
+        "title": "测试和修复",
+        "status": "pending",
+        "summary": "测试所有功能，修复发现的问题"
+      }
+    ]
+  },
+  "context": {
+    "techStack": ["Tauri 2.x", "Vue 3", "TypeScript", "Naive UI", "Pinia", "Vite"],
+    "decisions": [
+      "选择 Tauri 而非 Electron",
+      "选择 Naive UI 而非 Element Plus",
+      "端口配置默认 18789",
+      "检查点存储在项目目录 .clawdesk/task.json"
+    ]
+  },
+  "nextStep": {
+    "step": 4,
+    "title": "角色系统实现",
+    "tasks": [
+      "创建角色 Store (role.ts)",
+      "创建角色选择组件 (RoleSelector.vue)",
+      "实现角色切换功能"
+    ]
+  }
+}
