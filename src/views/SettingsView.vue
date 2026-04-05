@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { NCard, NForm, NFormItem, NInput, NSelect, NSwitch, NButton, NSpace, useMessage } from 'naive-ui'
+import { isEnabled, enable, disable } from '@tauri-apps/plugin-autostart'
 
 const message = useMessage()
 
@@ -10,8 +11,9 @@ const formValue = ref({
     language: localStorage.getItem('clawdesk-language') || 'zh-CN',
     theme: (localStorage.getItem('clawdesk-theme') || 'dark') as 'dark' | 'light',
     fontSize: localStorage.getItem('clawdesk-fontSize') || '14',
-    autoStart: localStorage.getItem('clawdesk-autoStart') === 'true',
-    minimizeToTray: localStorage.getItem('clawdesk-minimizeToTray') !== 'false'
+    autoStart: false,
+    minimizeToTray: localStorage.getItem('clawdesk-minimizeToTray') !== 'false',
+    autoStartGateway: localStorage.getItem('clawdesk-autoStartGateway') === 'true'
   },
   gateway: {
     defaultPort: localStorage.getItem('clawdesk-port') || '18789',
@@ -33,6 +35,16 @@ const themeOptions = [
   { label: '浅色主题', value: 'light' }
 ]
 
+// 初始化时检查自启状态
+onMounted(async () => {
+  try {
+    const enabled = await isEnabled()
+    formValue.value.general.autoStart = enabled
+  } catch (e) {
+    console.error('检查自启状态失败:', e)
+  }
+})
+
 // 监听主题变化立即生效
 watch(() => formValue.value.general.theme, (newTheme) => {
   localStorage.setItem('clawdesk-theme', newTheme)
@@ -42,14 +54,32 @@ watch(() => formValue.value.general.theme, (newTheme) => {
   }
 })
 
+// 切换开机自启
+watch(() => formValue.value.general.autoStart, async (enabled) => {
+  try {
+    if (enabled) {
+      await enable()
+      message.success('已开启开机自启')
+    } else {
+      await disable()
+      message.success('已关闭开机自启')
+    }
+    localStorage.setItem('clawdesk-autoStart', String(enabled))
+  } catch (e) {
+    console.error('设置自启失败:', e)
+    message.error('设置失败: ' + String(e))
+    formValue.value.general.autoStart = !enabled
+  }
+})
+
 // 保存设置
 const handleSave = () => {
   // 保存到 localStorage
   localStorage.setItem('clawdesk-language', formValue.value.general.language)
   localStorage.setItem('clawdesk-theme', formValue.value.general.theme)
   localStorage.setItem('clawdesk-fontSize', formValue.value.general.fontSize)
-  localStorage.setItem('clawdesk-autoStart', String(formValue.value.general.autoStart))
   localStorage.setItem('clawdesk-minimizeToTray', String(formValue.value.general.minimizeToTray))
+  localStorage.setItem('clawdesk-autoStartGateway', String(formValue.value.general.autoStartGateway))
   localStorage.setItem('clawdesk-port', formValue.value.gateway.defaultPort)
   localStorage.setItem('clawdesk-autoConnect', String(formValue.value.gateway.autoConnect))
   
@@ -95,6 +125,13 @@ const handleCancel = () => {
         
         <n-form-item label="开机自启">
           <n-switch v-model:value="formValue.general.autoStart" />
+        </n-form-item>
+        
+        <n-form-item label="自启时启动Gateway">
+          <n-switch 
+            v-model:value="formValue.general.autoStartGateway" 
+            :disabled="!formValue.general.autoStart"
+          />
         </n-form-item>
         
         <n-form-item label="最小化到托盘">

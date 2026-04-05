@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
@@ -11,8 +11,10 @@ import TaskManagePanel from '@/components/panels/TaskManagePanel.vue'
 import LogPanel from '@/components/panels/LogPanel.vue'
 import TaskRecovery from '@/components/TaskRecovery.vue'
 import type { Task } from '@/stores/task'
+import { useServiceStore } from '@/stores/service'
 
 const message = useMessage()
+const serviceStore = useServiceStore()
 
 // 右侧面板当前标签
 const activePanel = ref('service')
@@ -48,6 +50,24 @@ const handleAbandonTask = () => {
   message.warning('任务已放弃')
   // TODO: 更新任务状态为 abandoned
 }
+
+// 启动时检查是否需要自动启动 Gateway
+onMounted(async () => {
+  // 检查是否通过 --auto-start 参数启动
+  const urlParams = new URLSearchParams(window.location.search)
+  const isAutoStart = urlParams.has('autoStart') || 
+    localStorage.getItem('clawdesk-autoStartGateway') === 'true'
+  
+  if (isAutoStart) {
+    // 刷新状态，如果未运行则自动启动
+    await serviceStore.refreshStatus()
+    if (serviceStore.status !== 'running') {
+      const port = parseInt(localStorage.getItem('clawdesk-port') || '18789', 10)
+      message.info('正在自动启动 Gateway...')
+      await serviceStore.startGateway(port)
+    }
+  }
+})
 </script>
 
 <template>
