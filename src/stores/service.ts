@@ -8,10 +8,12 @@ import {
 
 export type GatewayStatus = 'running' | 'starting' | 'stopped' | 'error'
 
+const PORT_STORAGE_KEY = 'clawdesk-gateway-port'
+
 export const useServiceStore = defineStore('service', () => {
   // 状态
   const status = ref<GatewayStatus>('stopped')
-  const port = ref(18789)
+  const port = ref(loadSavedPort())
   const pid = ref<number | null>(null)
   const uptime = ref(0)
   const contextUsage = ref(0)
@@ -56,6 +58,13 @@ export const useServiceStore = defineStore('service', () => {
     if (status.value === 'running') return
     
     const targetPort = customPort || port.value
+    
+    // 验证端口范围
+    if (targetPort < 1024 || targetPort > 65535) {
+      lastError.value = '端口必须在 1024-65535 之间'
+      return
+    }
+    
     isOperating.value = true
     status.value = 'starting'
     lastError.value = null
@@ -67,6 +76,9 @@ export const useServiceStore = defineStore('service', () => {
       port.value = result.port
       pid.value = result.pid || null
       uptime.value = 0
+      
+      // 保存端口配置
+      savePort(result.port)
       
       // 启动运行时间计时器
       startUptimeTimer()
@@ -142,6 +154,18 @@ export const useServiceStore = defineStore('service', () => {
     contextUsage.value = Math.min(100, Math.max(0, usage))
   }
   
+  // 保存端口配置
+  function savePort(newPort: number) {
+    if (newPort >= 1024 && newPort <= 65535) {
+      port.value = newPort
+      try {
+        localStorage.setItem(PORT_STORAGE_KEY, String(newPort))
+      } catch (e) {
+        console.error('保存端口配置失败:', e)
+      }
+    }
+  }
+  
   // 运行时间计时器
   let uptimeTimer: ReturnType<typeof setInterval> | null = null
   
@@ -178,6 +202,25 @@ export const useServiceStore = defineStore('service', () => {
     stopGateway,
     restartGateway,
     refreshStatus,
-    updateContextUsage
+    updateContextUsage,
+    
+    // 端口配置
+    savePort
   }
 })
+
+// 加载保存的端口
+function loadSavedPort(): number {
+  try {
+    const saved = localStorage.getItem(PORT_STORAGE_KEY)
+    if (saved) {
+      const port = parseInt(saved, 10)
+      if (port >= 1024 && port <= 65535) {
+        return port
+      }
+    }
+  } catch (e) {
+    console.error('加载端口配置失败:', e)
+  }
+  return 18789
+}

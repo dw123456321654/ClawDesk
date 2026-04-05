@@ -1,173 +1,304 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { NTabs, NTabPane, NEmpty, NButton, NTag, NSpace, NIcon, NPopconfirm, NText } from 'naive-ui'
 import { 
-  TrashOutline, 
-  CheckmarkCircleOutline,
-  TimeOutline,
-  CloseCircleOutline
+  NButton, 
+  NSpace, 
+  NTabs, 
+  NTabPane,
+  NEmpty,
+  NProgress,
+  NTag,
+  NIcon,
+  useMessage,
+  useDialog
+} from 'naive-ui'
+import {
+  PlayOutline,
+  TrashOutline,
+  EyeOutline,
+  RefreshOutline
 } from '@vicons/ionicons5'
-import { useTaskStore, type Task } from '@/stores/task'
+import { useTaskStore, type TaskStatus } from '@/stores/task'
 
 const taskStore = useTaskStore()
+const message = useMessage()
+const dialog = useDialog()
 
-// 当前标签
-const activeTab = ref<'in_progress' | 'completed' | 'abandoned'>('in_progress')
+const activeTab = ref<TaskStatus | 'all'>('all')
 
-// 获取任务列表
-const taskList = computed(() => {
-  return taskStore.getTasksByStatus(activeTab.value)
+// 按状态分组
+const tasksByStatus = computed(() => {
+  const all = taskStore.tasks
+  
+  return {
+    all: all,
+    in_progress: all.filter(t => t.status === 'in_progress'),
+    completed: all.filter(t => t.status === 'completed'),
+    failed: all.filter(t => t.status === 'failed'),
+    abandoned: all.filter(t => t.status === 'abandoned')
+  }
 })
 
-// 状态标签类型
-const getStatusType = (status: string) => {
-  switch (status) {
-    case 'in_progress': return 'warning'
-    case 'completed': return 'success'
-    case 'abandoned': return 'error'
-    default: return 'default'
+// 当前显示的任务列表
+const displayTasks = computed(() => {
+  if (activeTab.value === 'all') {
+    return taskStore.tasks.slice().sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )
   }
-}
-
-// 状态文字
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'in_progress': return '进行中'
-    case 'completed': return '已完成'
-    case 'abandoned': return '已放弃'
-    case 'pending': return '待开始'
-    default: return '未知'
-  }
-}
-
-// 放弃任务
-const handleAbandon = (task: Task) => {
-  taskStore.abandonTask(task.taskId)
-}
+  return tasksByStatus.value[activeTab.value]
+})
 
 // 格式化时间
-const formatTime = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
+const formatTime = (timestamp: string): string => {
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   })
 }
 
-// 计算进度
-const getProgress = (task: Task) => {
-  if (task.totalSteps === 0) return 0
-  return Math.round((task.completedSteps / task.totalSteps) * 100)
+// 状态标签
+const getStatusTag = (status: TaskStatus) => {
+  const map: Record<TaskStatus, { type: 'default' | 'info' | 'success' | 'warning' | 'error'; text: string }> = {
+    pending: { type: 'default', text: '待开始' },
+    in_progress: { type: 'info', text: '进行中' },
+    completed: { type: 'success', text: '已完成' },
+    failed: { type: 'error', text: '失败' },
+    abandoned: { type: 'warning', text: '已放弃' }
+  }
+  return map[status]
+}
+
+// 查看任务详情
+const handleViewDetail = (task: typeof taskStore.tasks[0]) => {
+  dialog.info({
+    title: '任务详情',
+    content: `
+任务ID: ${task.taskId}
+描述: ${task.taskDescription}
+状态: ${getStatusTag(task.status).text}
+进度: ${task.completedSteps}/${task.totalSteps}
+创建时间: ${formatTime(task.createdAt)}
+更新时间: ${formatTime(task.updatedAt)}
+${task.error ? `错误: ${task.error}` : ''}
+    `.trim(),
+    positiveText: '关闭'
+  })
+}
+
+// 继续任务
+const handleContinue = (task: typeof taskStore.tasks[0]) => {
+  if (task.status === 'in_progress') {
+    message.info('任务已在进行中')
+    return
+  }
+  
+  // 设置为当前任务
+  taskStore.startTask(task.taskId)
+  message.success('已继续任务')
+}
+
+// 放弃任务
+const handleAbandon = (task: typeof taskStore.tasks[0]) => {
+  dialog.warning({
+    title: '放弃任务',
+    content: `确定要放弃任务「${task.taskDescription.slice(0, 20)}...」吗？`,
+    positiveText: '放弃',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      taskStore.abandonTask(task.taskId)
+      message.success('任务已放弃')
+    }
+  })
+}
+
+// 删除已完成任务
+const handleCleanup = () => {
+  taskStore.cleanupCompletedTasks(10)
+  message.success('已清理旧任务')
 }
 </script>
 
 <template>
   <div class="task-manage-panel">
+    <!-- 标签页 -->
     <n-tabs v-model:value="activeTab" type="line" size="small">
+      <n-tab-pane name="all" tab="全部">
+        <template #default>
+          <span class="tab-count">({{ taskStore.tasks.length }})</span>
+        </template>
+      </n-tab-pane>
       <n-tab-pane name="in_progress" tab="进行中">
-        <template #tab>
-          <n-space align="center" :size="4">
-            <n-icon><TimeOutline /></n-icon>
-            <span>进行中</span>
-            <n-tag 
-              v-if="taskStore.getTasksByStatus('in_progress').length > 0"
-              size="small" 
-              round
-              :bordered="false"
-            >
-              {{ taskStore.getTasksByStatus('in_progress').length }}
-            </n-tag>
-          </n-space>
+        <template #default>
+          <span class="tab-count">({{ tasksByStatus.in_progress.length }})</span>
         </template>
       </n-tab-pane>
-      
       <n-tab-pane name="completed" tab="已完成">
-        <template #tab>
-          <n-space align="center" :size="4">
-            <n-icon><CheckmarkCircleOutline /></n-icon>
-            <span>已完成</span>
-          </n-space>
+        <template #default>
+          <span class="tab-count">({{ tasksByStatus.completed.length }})</span>
         </template>
       </n-tab-pane>
-      
-      <n-tab-pane name="abandoned" tab="已放弃">
-        <template #tab>
-          <n-space align="center" :size="4">
-            <n-icon><CloseCircleOutline /></n-icon>
-            <span>已放弃</span>
-          </n-space>
+      <n-tab-pane name="failed" tab="失败">
+        <template #default>
+          <span class="tab-count">({{ tasksByStatus.failed.length }})</span>
         </template>
       </n-tab-pane>
     </n-tabs>
     
+    <!-- 任务列表 -->
     <div class="task-list">
-      <n-empty v-if="taskList.length === 0" description="暂无任务" />
+      <template v-if="displayTasks.length > 0">
+        <div
+          v-for="task in displayTasks"
+          :key="task.taskId"
+          class="task-item"
+          :class="{ active: task.taskId === taskStore.currentTaskId }"
+        >
+          <div class="task-header">
+            <span class="task-name">{{ task.taskDescription }}</span>
+            <n-tag 
+              :type="getStatusTag(task.status).type" 
+              size="small"
+            >
+              {{ getStatusTag(task.status).text }}
+            </n-tag>
+          </div>
+          
+          <div class="task-progress">
+            <n-progress
+              type="line"
+              :percentage="Math.round((task.completedSteps / task.totalSteps) * 100)"
+              :height="6"
+              :show-indicator="false"
+              :border-radius="3"
+            />
+            <span class="progress-text">
+              {{ task.completedSteps }}/{{ task.totalSteps }}
+            </span>
+          </div>
+          
+          <div class="task-meta">
+            <span class="task-time">{{ formatTime(task.createdAt) }}</span>
+            <span class="task-project" v-if="task.projectName">
+              {{ task.projectName }}
+            </span>
+          </div>
+          
+          <div class="task-actions">
+            <n-button 
+              quaternary 
+              size="tiny"
+              @click="handleViewDetail(task)"
+            >
+              <template #icon>
+                <n-icon><EyeOutline /></n-icon>
+              </template>
+              详情
+            </n-button>
+            
+            <n-button 
+              v-if="task.status !== 'in_progress' && task.status !== 'completed'"
+              quaternary 
+              size="tiny"
+              @click="handleContinue(task)"
+            >
+              <template #icon>
+                <n-icon><PlayOutline /></n-icon>
+              </template>
+              继续
+            </n-button>
+            
+            <n-button 
+              v-if="task.status === 'in_progress'"
+              quaternary 
+              size="tiny"
+              type="warning"
+              @click="handleAbandon(task)"
+            >
+              <template #icon>
+                <n-icon><TrashOutline /></n-icon>
+              </template>
+              放弃
+            </n-button>
+          </div>
+        </div>
+      </template>
       
-      <div 
-        v-for="task in taskList" 
-        :key="task.taskId" 
-        class="task-item"
+      <n-empty v-else description="暂无任务" size="small" />
+    </div>
+    
+    <!-- 底部操作 -->
+    <div class="bottom-actions">
+      <n-button 
+        quaternary 
+        size="small"
+        @click="handleCleanup"
+        :disabled="tasksByStatus.completed.length === 0"
       >
-        <div class="task-header">
-          <n-text strong class="task-name">{{ task.taskDescription }}</n-text>
-          <n-tag :type="getStatusType(task.status)" size="small">
-            {{ getStatusText(task.status) }}
-          </n-tag>
-        </div>
-        
-        <div class="task-meta">
-          <span class="meta-item">
-            进度: {{ task.completedSteps }}/{{ task.totalSteps }} ({{ getProgress(task) }}%)
-          </span>
-          <span class="meta-item">
-            更新: {{ formatTime(task.updatedAt) }}
-          </span>
-        </div>
-        
-        <div class="task-progress">
-          <div class="progress-bar" :style="{ width: getProgress(task) + '%' }"></div>
-        </div>
-        
-        <div class="task-actions" v-if="task.status === 'in_progress'">
-          <n-popconfirm @positive-click="handleAbandon(task)">
-            <template #trigger>
-              <n-button size="tiny" type="error" quaternary>
-                <template #icon><n-icon><TrashOutline /></n-icon></template>
-                放弃
-              </n-button>
-            </template>
-            确定要放弃这个任务吗？
-          </n-popconfirm>
-        </div>
-      </div>
+        <template #icon>
+          <n-icon><TrashOutline /></n-icon>
+        </template>
+        清理已完成
+      </n-button>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .task-manage-panel {
-  height: 100%;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  
+  :deep(.n-tabs) {
+    .n-tabs-nav {
+      padding: 0 8px;
+    }
+    
+    .n-tab-pane {
+      padding: 0;
+    }
+  }
+}
+
+.tab-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
 }
 
 .task-list {
   flex: 1;
   overflow-y: auto;
-  margin-top: 12px;
+  padding: 8px;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--border-secondary);
+    border-radius: 3px;
+  }
 }
 
 .task-item {
   padding: 12px;
-  border-radius: 8px;
-  background-color: rgba(0, 0, 0, 0.02);
   margin-bottom: 8px;
-  transition: background-color 0.2s;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  border: 1px solid transparent;
+  transition: all 0.2s;
   
   &:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: var(--bg-tertiary);
+  }
+  
+  &.active {
+    border-color: var(--brand-primary);
+    background-color: rgba(255, 107, 53, 0.05);
   }
 }
 
@@ -176,42 +307,58 @@ const getProgress = (task: Task) => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 8px;
+}
+
+.task-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  margin-right: 8px;
+  word-break: break-all;
   
-  .task-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  
+  .n-progress {
     flex: 1;
-    font-size: 13px;
-    line-height: 1.4;
+  }
+  
+  .progress-text {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
   }
 }
 
 .task-meta {
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
   margin-bottom: 8px;
-  
-  .meta-item {
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-}
-
-.task-progress {
-  height: 4px;
-  background-color: rgba(0, 0, 0, 0.06);
-  border-radius: 2px;
-  overflow: hidden;
-  
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #18a058, #36ad6a);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-  }
 }
 
 .task-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
-  margin-top: 8px;
+}
+
+.bottom-actions {
+  padding: 8px;
+  border-top: 1px solid var(--border-secondary);
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

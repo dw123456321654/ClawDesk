@@ -8,6 +8,7 @@ import ServicePanel from '@/components/panels/ServicePanel.vue'
 import TaskPanel from '@/components/panels/TaskPanel.vue'
 import HelpPanel from '@/components/panels/HelpPanel.vue'
 import TaskManagePanel from '@/components/panels/TaskManagePanel.vue'
+import LogPanel from '@/components/panels/LogPanel.vue'
 import TaskRecovery from '@/components/TaskRecovery.vue'
 import type { Task } from '@/stores/task'
 
@@ -19,6 +20,7 @@ const panels = [
   { key: 'service', label: '服务管理' },
   { key: 'task', label: '任务进度' },
   { key: 'taskManage', label: '任务管理' },
+  { key: 'log', label: '日志' },
   { key: 'help', label: '帮助' }
 ]
 
@@ -86,6 +88,7 @@ const handleAbandonTask = () => {
             <ServicePanel v-if="activePanel === 'service'" />
             <TaskPanel v-else-if="activePanel === 'task'" />
             <TaskManagePanel v-else-if="activePanel === 'taskManage'" />
+            <LogPanel v-else-if="activePanel === 'log'" />
             <HelpPanel v-else-if="activePanel === 'help'" />
           </div>
         </n-layout-sider>

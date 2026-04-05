@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { NButton, NSpace, NInput, NSwitch, NSelect, NDivider, NIcon, NAlert, NSpin } from 'naive-ui'
+import { ref, computed, onMounted, watch } from 'vue'
+import { NButton, NSpace, NInput, NSwitch, NSelect, NDivider, NIcon, NAlert, NSpin, useMessage } from 'naive-ui'
 import { useServiceStore } from '@/stores/service'
 import {
   PlayCircleOutline,
@@ -10,6 +10,7 @@ import {
 } from '@vicons/ionicons5'
 
 const serviceStore = useServiceStore()
+const message = useMessage()
 
 // 组件挂载时刷新状态
 onMounted(() => {
@@ -17,7 +18,8 @@ onMounted(() => {
 })
 
 // 配置
-const port = ref('18789')
+const port = ref(String(serviceStore.port))
+const portError = ref<string | null>(null)
 const autoStart = ref(true)
 const minimizeToTray = ref(true)
 const logLevel = ref('info')
@@ -28,6 +30,28 @@ const logLevelOptions = [
   { label: 'Warning', value: 'warn' },
   { label: 'Error', value: 'error' }
 ]
+
+// 验证端口
+function validatePort(value: string): boolean {
+  const portNum = parseInt(value, 10)
+  if (isNaN(portNum)) {
+    portError.value = '请输入有效的端口号'
+    return false
+  }
+  if (portNum < 1024 || portNum > 65535) {
+    portError.value = '端口必须在 1024-65535 之间'
+    return false
+  }
+  portError.value = null
+  return true
+}
+
+// 监听端口变化
+watch(port, (value) => {
+  if (validatePort(value)) {
+    serviceStore.savePort(parseInt(value, 10))
+  }
+})
 
 // 格式化运行时间
 const formattedUptime = computed(() => {
@@ -47,6 +71,10 @@ const formattedUptime = computed(() => {
 
 // 启动服务
 const handleStart = () => {
+  if (!validatePort(port.value)) {
+    message.error(portError.value || '端口无效')
+    return
+  }
   serviceStore.startGateway(parseInt(port.value) || 18789)
 }
 
@@ -148,8 +176,13 @@ const handleRestart = () => {
         <n-input 
           v-model:value="port" 
           :disabled="serviceStore.status === 'running'"
+          :status="portError ? 'error' : undefined"
           style="width: 120px;"
         />
+      </div>
+      
+      <div class="config-item error-hint" v-if="portError">
+        <span>{{ portError }}</span>
       </div>
       
       <div class="config-item">
@@ -268,6 +301,17 @@ const handleRestart = () => {
   
   label {
     color: var(--text-secondary);
+  }
+  
+  &.error-hint {
+    justify-content: flex-end;
+    margin-top: -8px;
+    margin-bottom: 8px;
+    
+    span {
+      font-size: 12px;
+      color: #d03050;
+    }
   }
 }
 </style>
