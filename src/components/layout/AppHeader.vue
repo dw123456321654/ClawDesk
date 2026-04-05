@@ -30,18 +30,8 @@ const handleRoleSwitched = (role: typeof roleStore.currentRole) => {
   message.success(`已切换到「${role.nickname}」`)
 }
 
-const getRoleColor = (roleId: string): string => {
-  const colors: Record<string, string> = {
-    'main-agent': '#FF6B9D',
-    'product-manager': '#4CAF50',
-    'project-manager': '#2196F3',
-    'architect': '#9C27B0',
-    'developer': '#FF9800',
-    'tester': '#F44336',
-    'ui-designer': '#E91E63'
-  }
-  return colors[roleId] || '#607D8B'
-}
+// 角色颜色映射（暂时未使用，保留备用）
+// const getRoleColor = (roleId: string): string => { ... }
 </script>
 
 <template>

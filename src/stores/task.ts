@@ -21,6 +21,7 @@ export interface Task {
   checkpoints: Checkpoint[]
   createdAt: string
   updatedAt: string
+  startedAt?: string // 任务开始时间
   projectPath?: string
   projectName?: string
   // 任务上下文
@@ -33,6 +34,8 @@ export interface Task {
       tasks: string[]
     }
   }
+  // 错误信息
+  error?: string
 }
 
 const STORAGE_KEY = 'clawdesk-tasks'
@@ -55,6 +58,49 @@ export const useTaskStore = defineStore('task', () => {
   const progress = computed(() => {
     if (!currentTask.value) return 0
     return Math.round((currentTask.value.completedSteps / currentTask.value.totalSteps) * 100)
+  })
+  
+  // 预估剩余时间（秒）
+  const estimatedTimeRemaining = computed(() => {
+    if (!currentTask.value || !currentTask.value.startedAt) return null
+    
+    const task = currentTask.value
+    
+    // 如果已完成或未开始，返回 null
+    if (task.completedSteps === 0 || task.status !== 'in_progress') return null
+    
+    const startTime = new Date(task.startedAt!).getTime()
+    const now = Date.now()
+    const elapsedSeconds = (now - startTime) / 1000
+    
+    // 平均每个步骤耗时
+    const avgTimePerStep = elapsedSeconds / task.completedSteps
+    
+    // 剩余步骤数
+    const remainingSteps = task.totalSteps - task.completedSteps
+    
+    // 预估剩余时间
+    const estimatedSeconds = Math.round(avgTimePerStep * remainingSteps)
+    
+    return estimatedSeconds
+  })
+  
+  // 格式化预估时间
+  const formattedEstimatedTime = computed(() => {
+    const seconds = estimatedTimeRemaining.value
+    if (seconds === null) return null
+    
+    if (seconds < 60) return `约 ${seconds} 秒`
+    const minutes = Math.round(seconds / 60)
+    if (minutes < 60) return `约 ${minutes} 分钟`
+    const hours = Math.round(minutes / 60)
+    return `约 ${hours} 小时`
+  })
+  
+  // 当前进行中的步骤
+  const currentStep = computed(() => {
+    if (!currentTask.value) return null
+    return currentTask.value.checkpoints.find(c => c.status === 'in_progress') || null
   })
   
   // ========== 任务生命周期方法 ==========
@@ -101,6 +147,7 @@ export const useTaskStore = defineStore('task', () => {
     const task = tasks.value.find(t => t.taskId === taskId)
     if (task) {
       task.status = 'in_progress'
+      task.startedAt = new Date().toISOString()
       task.updatedAt = new Date().toISOString()
       currentTaskId.value = taskId
       saveToStorage()
@@ -205,6 +252,7 @@ export const useTaskStore = defineStore('task', () => {
     const task = tasks.value.find(t => t.taskId === taskId)
     if (task) {
       task.status = 'failed'
+      task.error = reason
       task.updatedAt = new Date().toISOString()
       if (reason && task.context) {
         task.context.decisions = task.context.decisions || []
@@ -305,6 +353,9 @@ export const useTaskStore = defineStore('task', () => {
     currentTask,
     tasks,
     progress,
+    estimatedTimeRemaining,
+    formattedEstimatedTime,
+    currentStep,
     
     // 生命周期
     createTask,

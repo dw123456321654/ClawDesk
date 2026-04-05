@@ -1,49 +1,91 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { NMenu, NButton, NIcon } from 'naive-ui'
-import type { MenuOption } from 'naive-ui'
+import { ref, h } from 'vue'
+import { NMenu, NButton, NIcon, NDropdown, NEmpty, NAvatar } from 'naive-ui'
+import type { MenuOption, DropdownOption } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import {
-  ChatbubblesOutline,
-  PersonCircleOutline,
   SettingsOutline,
-  HardwareChipOutline,
-  RocketOutline,
-  TimerOutline,
   HelpCircleOutline,
-  AddOutline
+  AddOutline,
+  TrashOutline,
+  CreateOutline
 } from '@vicons/ionicons5'
-import { h } from 'vue'
+import { useChatStore } from '@/stores/chat'
+import { useRoleStore } from '@/stores/role'
+import { useDialog, useMessage } from 'naive-ui'
 
 const router = useRouter()
+const dialog = useDialog()
+const message = useMessage()
+const chatStore = useChatStore()
+const roleStore = useRoleStore()
 const collapsed = ref(false)
 
+// 会话列表右键菜单
+const getSessionDropdownOptions = (): DropdownOption[] => [
+  {
+    label: '重命名',
+    key: 'rename',
+    icon: () => h(NIcon, null, { default: () => h(CreateOutline) })
+  },
+  {
+    label: '删除',
+    key: 'delete',
+    icon: () => h(NIcon, null, { default: () => h(TrashOutline) })
+  }
+]
+
+// 处理会话右键菜单
+const handleSessionDropdown = (key: string, sessionId: string) => {
+  if (key === 'delete') {
+    dialog.warning({
+      title: '删除会话',
+      content: '确定要删除这个会话吗？',
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        chatStore.deleteSession(sessionId)
+        message.success('会话已删除')
+      }
+    })
+  } else if (key === 'rename') {
+    const session = chatStore.sessions.find(s => s.id === sessionId)
+    if (session) {
+      const newName = prompt('请输入新名称', session.name)
+      if (newName && newName.trim()) {
+        chatStore.renameSession(sessionId, newName.trim())
+        message.success('会话已重命名')
+      }
+    }
+  }
+}
+
+// 获取会话关联的角色信息
+const getRoleInfo = (roleId: string) => {
+  return roleStore.availableRoles.find(r => r.id === roleId)
+}
+
+// 格式化时间
+const formatTime = (timestamp: number): string => {
+  const now = Date.now()
+  const diff = now - timestamp
+  
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  return new Date(timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+// 新建会话
+const handleNewSession = () => {
+  const currentRoleId = chatStore.currentRoleId || roleStore.currentRole.id
+  chatStore.createSession(currentRoleId)
+  message.success('已创建新会话')
+  router.push('/')
+}
+
+// 底部菜单选项
 const menuOptions: MenuOption[] = [
-  {
-    label: '会话列表',
-    key: 'sessions',
-    icon: () => h(NIcon, { size: 20 }, { default: () => h(ChatbubblesOutline) })
-  },
-  {
-    label: '角色管理',
-    key: 'roles',
-    icon: () => h(NIcon, { size: 20 }, { default: () => h(PersonCircleOutline) })
-  },
-  {
-    label: '节点管理',
-    key: 'nodes',
-    icon: () => h(NIcon, { size: 20 }, { default: () => h(HardwareChipOutline) })
-  },
-  {
-    label: '技能管理',
-    key: 'skills',
-    icon: () => h(NIcon, { size: 20 }, { default: () => h(RocketOutline) })
-  },
-  {
-    label: '自动化',
-    key: 'automation',
-    icon: () => h(NIcon, { size: 20 }, { default: () => h(TimerOutline) })
-  },
   {
     type: 'divider',
     key: 'd1'
@@ -75,15 +117,77 @@ const handleMenuSelect = (key: string) => {
 <template>
   <aside class="app-sidebar" :class="{ collapsed }">
     <div class="sidebar-content">
-      <n-menu
-        :collapsed="collapsed"
-        :collapsed-width="64"
-        :collapsed-icon-size="22"
-        :options="menuOptions"
-        :value="activeKey"
-        :render-label="collapsed ? undefined : (opt: any) => opt.label"
-        @update:value="handleMenuSelect"
-      />
+      <!-- 会话列表 -->
+      <div v-if="!collapsed" class="session-list">
+        <div class="session-list-header">
+          <span class="header-title">会话列表</span>
+          <n-button quaternary size="tiny" class="new-btn" @click="handleNewSession">
+            <template #icon>
+              <n-icon size="16"><AddOutline /></n-icon>
+            </template>
+          </n-button>
+        </div>
+        
+        <div class="session-items">
+          <template v-if="chatStore.sessions.length > 0">
+            <n-dropdown
+              v-for="session in chatStore.sessions"
+              :key="session.id"
+              trigger="click"
+              :options="getSessionDropdownOptions()"
+              @select="(key: string) => handleSessionDropdown(key, session.id)"
+            >
+              <div
+                class="session-item"
+                :class="{ active: session.id === chatStore.currentSessionId }"
+                @click="chatStore.switchSession(session.id)"
+              >
+                <div class="session-avatar">
+                  <n-avatar
+                    :size="32"
+                    round
+                    :src="getRoleInfo(session.roleId)?.avatar"
+                  />
+                </div>
+                <div class="session-info">
+                  <div class="session-name">{{ session.name }}</div>
+                  <div class="session-meta">
+                    <span class="session-role">{{ getRoleInfo(session.roleId)?.nickname }}</span>
+                    <span class="session-time">{{ formatTime(session.updatedAt) }}</span>
+                  </div>
+                </div>
+              </div>
+            </n-dropdown>
+          </template>
+          <n-empty v-else description="暂无会话" size="small" />
+        </div>
+      </div>
+      
+      <!-- 折叠状态下的会话按钮 -->
+      <div v-else class="session-collapsed">
+        <n-button
+          circle
+          secondary
+          class="session-btn"
+          @click="handleNewSession"
+        >
+          <template #icon>
+            <n-icon><AddOutline /></n-icon>
+          </template>
+        </n-button>
+      </div>
+      
+      <!-- 底部菜单 -->
+      <div class="bottom-menu">
+        <n-menu
+          :collapsed="collapsed"
+          :collapsed-width="64"
+          :collapsed-icon-size="22"
+          :options="menuOptions"
+          :value="activeKey"
+          @update:value="handleMenuSelect"
+        />
+      </div>
     </div>
     
     <div class="sidebar-footer">
@@ -91,23 +195,12 @@ const handleMenuSelect = (key: string) => {
         v-if="!collapsed"
         block 
         class="new-session-btn"
-        @click="router.push('/')"
+        @click="handleNewSession"
       >
         <template #icon>
           <n-icon><AddOutline /></n-icon>
         </template>
         新建会话
-      </n-button>
-      <n-button 
-        v-else
-        circle
-        secondary
-        class="new-session-btn-collapsed"
-        @click="router.push('/')"
-      >
-        <template #icon>
-          <n-icon><AddOutline /></n-icon>
-        </template>
       </n-button>
       
       <button class="collapse-btn" @click="collapsed = !collapsed">
@@ -120,7 +213,7 @@ const handleMenuSelect = (key: string) => {
 
 <style scoped lang="scss">
 .app-sidebar {
-  width: 220px;
+  width: 240px;
   height: 100%;
   background: var(--bg-primary);
   border-right: 1px solid var(--border-primary);
@@ -139,45 +232,142 @@ const handleMenuSelect = (key: string) => {
 
 .sidebar-content {
   flex: 1;
-  padding: 8px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.session-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  
+  .session-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 12px 8px;
+    
+    .header-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .new-btn {
+      color: var(--text-tertiary);
+      
+      &:hover {
+        color: var(--brand-primary);
+      }
+    }
+  }
+  
+  .session-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px;
+    
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-secondary);
+      border-radius: 2px;
+    }
+  }
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  
+  &:hover {
+    background: var(--bg-tertiary);
+  }
+  
+  &.active {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.12), rgba(156, 39, 176, 0.12));
+    border-color: var(--border-accent);
+    
+    .session-name {
+      color: var(--brand-primary);
+      font-weight: 600;
+    }
+  }
+  
+  .session-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .session-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .session-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+    
+    .session-role {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    
+    .session-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-left: auto;
+    }
+  }
+}
+
+.session-collapsed {
+  padding: 12px 8px;
+  display: flex;
+  justify-content: center;
+  
+  .session-btn {
+    background: var(--brand-gradient);
+    color: white;
+    border: none;
+  }
+}
+
+.bottom-menu {
+  border-top: 1px solid var(--border-primary);
   
   :deep(.n-menu) {
     background: transparent;
     
     .n-menu-item {
-      margin-bottom: 4px;
+      margin: 4px;
       
       .n-menu-item-content {
         padding: 10px 12px;
         border-radius: var(--radius-md);
-        transition: all var(--transition-fast);
         
         &:hover {
           background: var(--bg-tertiary);
         }
       }
-      
-      &.n-menu-item--selected {
-        .n-menu-item-content {
-          background: linear-gradient(135deg, rgba(255, 107, 53, 0.15), rgba(156, 39, 176, 0.15));
-          border: 1px solid var(--border-accent);
-          
-          .n-menu-item-content-header {
-            color: var(--brand-primary);
-            font-weight: 600;
-          }
-          
-          .n-menu-item-content__icon {
-            color: var(--brand-primary);
-          }
-        }
-      }
-    }
-    
-    .n-menu-divider {
-      margin: 12px 8px;
-      background: var(--border-primary);
     }
   }
 }
@@ -202,14 +392,6 @@ const handleMenuSelect = (key: string) => {
       transform: translateY(-1px);
       box-shadow: var(--shadow-glow);
     }
-  }
-  
-  .new-session-btn-collapsed {
-    width: 40px;
-    height: 40px;
-    background: var(--brand-gradient);
-    color: white;
-    border: none;
   }
   
   .collapse-btn {

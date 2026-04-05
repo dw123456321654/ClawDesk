@@ -130,9 +130,12 @@ import { useServiceStore } from '@/stores/service'
 import { useChatStore } from '@/stores/chat'
 import { useRoleStore } from '@/stores/role'
 import { readOpenClawConfig } from '@/utils/api'
+import { exceptionMonitor } from '@/utils/exceptionMonitor'
+import { useNotification } from 'naive-ui'
 
 const message = useMessage()
 const dialog = useDialog()
+const notification = useNotification()
 const serviceStore = useServiceStore()
 const chatStore = useChatStore()
 const roleStore = useRoleStore()
@@ -204,6 +207,53 @@ function showContextAlert() {
   })
 }
 
+// 显示异常通知
+function showExceptionNotification(type: 'task_timeout' | 'service_disconnected' | 'context_full') {
+  const titles: Record<string, string> = {
+    task_timeout: '⚠️ 任务可能卡死',
+    service_disconnected: '🔌 服务连接断开',
+    context_full: '📊 上下文即将满'
+  }
+  
+  const messages: Record<string, string> = {
+    task_timeout: '当前任务已执行超过60秒无响应',
+    service_disconnected: '与 Gateway 的连接已断开',
+    context_full: '上下文使用率已超过95%'
+  }
+  
+  notification.warning({
+    title: titles[type],
+    content: messages[type],
+    duration: 0
+  })
+  
+  // 根据类型执行操作
+  if (type === 'task_timeout') {
+    dialog.warning({
+      title: titles[type],
+      content: messages[type],
+      positiveText: '重试',
+      negativeText: '忽略',
+      onPositiveClick: () => handleRetry()
+    })
+  } else if (type === 'service_disconnected') {
+    dialog.warning({
+      title: titles[type],
+      content: messages[type],
+      positiveText: '重新连接',
+      negativeText: '忽略',
+      onPositiveClick: () => connectGateway()
+    })
+  }
+}
+
+// 重试发送
+function handleRetry() {
+  // 重置等待状态
+  chatStore.setWaiting(false)
+  exceptionMonitor.clearTaskMonitor()
+}
+
 // 连接 Gateway
 async function connectGateway() {
   const config = await readOpenClawConfig()
@@ -219,6 +269,11 @@ async function connectGateway() {
   gatewayClient.onStatusChange = (status) => {
     console.log('[Chat] Gateway status:', status)
     clientConnected.value = status === 'connected'
+    
+    // 服务断开时触发异常
+    if (status === 'disconnected' && isWaiting.value) {
+      showExceptionNotification('service_disconnected')
+    }
   }
   
   gatewayClient.onMessage = (msg) => {
@@ -260,6 +315,9 @@ async function connectGateway() {
     }
     chatStore.setWaiting(false)
     
+    // 清除任务超时监控
+    exceptionMonitor.clearTaskMonitor()
+    
     // 重新计算 token
     chatStore.recalculateTokens()
     scrollToBottom()
@@ -289,6 +347,11 @@ async function sendMessage() {
   chatStore.addMessage(userMsg)
   inputText.value = ''
   chatStore.setWaiting(true)
+  
+  // 启动任务超时监控
+  exceptionMonitor.startTaskMonitor(() => {
+    showExceptionNotification('task_timeout')
+  })
   
   // 重新计算 token
   chatStore.recalculateTokens()
