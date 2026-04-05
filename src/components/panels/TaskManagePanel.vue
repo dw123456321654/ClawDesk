@@ -126,8 +126,12 @@ const handleAbandon = (task: typeof taskStore.tasks[0]) => {
 
 // 删除已完成任务
 const handleCleanup = () => {
-  taskStore.cleanupCompletedTasks(10)
-  message.success('已清理旧任务')
+  const removed = taskStore.cleanupCompletedTasks()
+  if (removed > 0) {
+    message.success(`已清理 ${removed} 个已完成任务`)
+  } else {
+    message.info('没有已完成的任务需要清理')
+  }
 }
 </script>
 

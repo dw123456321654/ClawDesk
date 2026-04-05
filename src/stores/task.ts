@@ -323,18 +323,18 @@ export const useTaskStore = defineStore('task', () => {
   // ========== 维护方法 ==========
   
   /**
-   * 清理已完成任务（保留最近 N 个）
+   * 清理已完成任务（全部清空）
    */
-  function cleanupCompletedTasks(keepCount: number = 20) {
-    const completed = tasks.value
-      .filter(t => t.status === 'completed')
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  function cleanupCompletedTasks() {
+    const before = tasks.value.length
+    tasks.value = tasks.value.filter(t => t.status !== 'completed')
+    const removed = before - tasks.value.length
     
-    if (completed.length > keepCount) {
-      const toRemove = completed.slice(keepCount).map(t => t.taskId)
-      tasks.value = tasks.value.filter(t => !toRemove.includes(t.taskId))
+    if (removed > 0) {
       saveToStorage()
     }
+    
+    return removed
   }
   
   /**
