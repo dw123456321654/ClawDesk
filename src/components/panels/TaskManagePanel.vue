@@ -51,10 +51,20 @@ const displayTasks = computed(() => {
 
 // 格式化时间
 const formatTime = (timestamp: string): string => {
-  return new Date(timestamp).toLocaleString('zh-CN', {
-    month: 'numeric',
+  const date = new Date(timestamp)
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  
+  const time = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  
+  if (isToday) {
+    return `今天 ${time}`
+  }
+  
+  return date.toLocaleDateString('zh-CN', { 
+    month: 'long', 
     day: 'numeric',
-    hour: '2-digit',
+    hour: '2-digit', 
     minute: '2-digit'
   })
 }
