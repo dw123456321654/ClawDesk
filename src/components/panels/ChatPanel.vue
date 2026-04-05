@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onUnmounted, nextTick, watch, onMounted } from 'vue'
 import { NInput, NButton, NIcon, NAlert, useMessage, useDialog } from 'naive-ui'
 import { SendOutline, ContractOutline, AddOutline } from '@vicons/ionicons5'
 import { GatewayClient, ChatMessage, getGatewayClient } from '@/utils/gateway'
@@ -214,6 +214,14 @@ watch(() => chatStore.currentSessionId, () => {
   nextTick(() => {
     scrollToBottom()
   })
+})
+
+// 组件挂载时滚动到底部
+onMounted(() => {
+  // 延迟滚动，等待 DOM 渲染完成
+  setTimeout(() => {
+    scrollToBottom()
+  }, 100)
 })
 
 // 显示上下文警告弹窗
