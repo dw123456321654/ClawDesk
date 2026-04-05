@@ -51,17 +51,41 @@
         @keydown="handleKeydown"
         :disabled="!isConnected || isWaiting"
       />
-      <n-button
-        type="primary"
-        @click="sendMessage"
-        :disabled="!inputText.trim() || !isConnected || isWaiting"
-        :loading="isWaiting"
-      >
-        <template #icon>
-          <n-icon><SendOutline /></n-icon>
-        </template>
-        发送
-      </n-button>
+      <div class="input-actions">
+        <n-button
+          quaternary
+          size="small"
+          @click="handleCompact"
+          :disabled="!isConnected || isWaiting"
+          title="压缩上下文"
+        >
+          <template #icon>
+            <n-icon><ContractOutline /></n-icon>
+          </template>
+        </n-button>
+        <n-button
+          quaternary
+          size="small"
+          @click="handleNewSession"
+          :disabled="isWaiting"
+          title="新开会话"
+        >
+          <template #icon>
+            <n-icon><AddOutline /></n-icon>
+          </template>
+        </n-button>
+        <n-button
+          type="primary"
+          @click="sendMessage"
+          :disabled="!inputText.trim() || !isConnected || isWaiting"
+          :loading="isWaiting"
+        >
+          <template #icon>
+            <n-icon><SendOutline /></n-icon>
+          </template>
+          发送
+        </n-button>
+      </div>
     </div>
     
     <!-- 底部状态栏 -->
@@ -71,9 +95,9 @@
           {{ connectionStatusText }}
         </span>
       </div>
-      <div class="status-right" v-if="isConnected && contextUsage.percentage > 0">
+      <div class="status-right" v-if="isConnected">
         <span 
-          class="status-item context-display" 
+          class="status-item context-display clickable" 
           :class="contextStatusClass"
           @click="handleContextClick"
         >
@@ -94,7 +118,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, nextTick, watch } from 'vue'
 import { NInput, NButton, NIcon, NAlert, useMessage, useDialog } from 'naive-ui'
-import { SendOutline } from '@vicons/ionicons5'
+import { SendOutline, ContractOutline, AddOutline } from '@vicons/ionicons5'
 import { GatewayClient, ChatMessage, getGatewayClient } from '@/utils/gateway'
 import { useServiceStore } from '@/stores/service'
 import { useChatStore } from '@/stores/chat'
@@ -286,21 +310,19 @@ async function sendMessage() {
 
 // 点击上下文显示
 function handleContextClick() {
-  if (chatStore.shouldWarn) {
-    // 显示上下文管理选项
-    dialog.info({
-      title: '上下文管理',
-      content: `当前使用: ${chatStore.formatContext()} (${contextUsage.value.percentage}%)`,
-      positiveText: '压缩上下文',
-      negativeText: '新开会话',
-      onPositiveClick: () => {
-        handleCompact()
-      },
-      onNegativeClick: () => {
-        handleNewSession()
-      }
-    })
-  }
+  // 显示上下文管理选项
+  dialog.info({
+    title: '上下文管理',
+    content: `当前使用: ${chatStore.formatContext()} (${contextUsage.value.percentage}%)`,
+    positiveText: '压缩上下文',
+    negativeText: '新开会话',
+    onPositiveClick: () => {
+      handleCompact()
+    },
+    onNegativeClick: () => {
+      handleNewSession()
+    }
+  })
 }
 
 // 压缩上下文
@@ -527,9 +549,17 @@ onUnmounted(() => {
 .input-area {
   display: flex;
   gap: 12px;
-  padding: 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-secondary);
   background-color: var(--bg-primary);
+}
+
+.input-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  justify-content: flex-end;
 }
 
 // 底部状态栏
@@ -560,10 +590,12 @@ onUnmounted(() => {
 .status-error { color: #ef4444; }
 
 .context-display {
-  cursor: pointer;
-  
-  &:hover {
-    text-decoration: underline;
+  &.clickable {
+    cursor: pointer;
+    
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 
