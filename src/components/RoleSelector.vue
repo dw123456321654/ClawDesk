@@ -14,6 +14,21 @@ const dialog = useDialog()
 const roleStore = useRoleStore()
 const justSwitched = ref<string | null>(null)
 
+// 角色颜色映射
+const roleColors: Record<string, string> = {
+  'main-agent': '#FF6B9D',
+  'product-manager': '#4CAF50',
+  'project-manager': '#2196F3',
+  'architect': '#9C27B0',
+  'developer': '#FF9800',
+  'tester': '#F44336',
+  'ui-designer': '#E91E63'
+}
+
+const getRoleColor = (roleId: string): string => {
+  return roleColors[roleId] || '#607D8B'
+}
+
 const handleSwitch = async (role: Role) => {
   if (role.id === roleStore.currentRole.id) {
     emit('close')
@@ -83,10 +98,9 @@ const showConfirmDialog = (targetRole: Role) => {
           <n-avatar 
             :size="44" 
             round
+            :src="role.avatar"
             :style="{ backgroundColor: getRoleColor(role.id) }"
-          >
-            <span class="avatar-emoji">{{ role.avatar }}</span>
-          </n-avatar>
+          />
           <div class="active-indicator" v-if="role.id === roleStore.currentRole.id">
             <n-icon :size="14" color="#fff">
               <CheckmarkCircleOutline />
@@ -119,19 +133,7 @@ const showConfirmDialog = (targetRole: Role) => {
   </div>
 </template>
 
-<script lang="ts">
-function getRoleColor(roleId: string): string {
-  const colors: Record<string, string> = {
-    'product-manager': '#4CAF50',
-    'project-manager': '#2196F3',
-    'architect': '#9C27B0',
-    'developer': '#FF9800',
-    'tester': '#F44336',
-    'ui-designer': '#E91E63'
-  }
-  return colors[roleId] || '#607D8B'
-}
-</script>
+
 
 <style scoped lang="scss">
 .role-selector {

@@ -32,6 +32,7 @@ const handleRoleSwitched = (role: typeof roleStore.currentRole) => {
 
 const getRoleColor = (roleId: string): string => {
   const colors: Record<string, string> = {
+    'main-agent': '#FF6B9D',
     'product-manager': '#4CAF50',
     'project-manager': '#2196F3',
     'architect': '#9C27B0',
@@ -66,10 +67,8 @@ const getRoleColor = (roleId: string): string => {
               <n-avatar 
                 :size="32" 
                 round
-                :style="{ backgroundColor: getRoleColor(roleStore.currentRole.id) }"
-              >
-                {{ roleStore.currentRole.avatar }}
-              </n-avatar>
+                :src="roleStore.currentRole.avatar"
+              />
               <div class="status-dot"></div>
             </div>
             <div class="role-info">

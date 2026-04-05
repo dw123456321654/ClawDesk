@@ -3,7 +3,9 @@
     <!-- 消息列表 -->
     <div class="message-list" ref="messageListRef">
       <div v-if="messages.length === 0" class="empty-state">
-        <div class="empty-avatar">{{ currentRole.avatar }}</div>
+        <div class="empty-avatar">
+          <img :src="currentRole.avatar" :alt="currentRole.nickname" />
+        </div>
         <p class="empty-greeting">{{ currentRole.greeting || '开始对话吧！' }}</p>
         <p class="empty-hint">正在和 {{ currentRole.nickname }} 对话</p>
       </div>
@@ -16,7 +18,7 @@
       >
         <div class="message-avatar">
           <span v-if="msg.role === 'user'">👤</span>
-          <span v-else-if="msg.role === 'assistant'">{{ currentRole.avatar }}</span>
+          <img v-else-if="msg.role === 'assistant'" :src="currentRole.avatar" :alt="currentRole.nickname" />
           <span v-else>⚙️</span>
         </div>
         <div class="message-content">
@@ -32,7 +34,9 @@
       
       <!-- 加载中 -->
       <div v-if="isWaiting" class="message-item assistant">
-        <div class="message-avatar">{{ currentRole.avatar }}</div>
+        <div class="message-avatar">
+          <img :src="currentRole.avatar" :alt="currentRole.nickname" />
+        </div>
         <div class="message-content">
           <div class="typing-indicator">
             <span></span>
@@ -430,8 +434,17 @@ onUnmounted(() => {
   color: var(--text-tertiary);
   
   .empty-avatar {
-    font-size: 48px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
     margin-bottom: 16px;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   }
   
   .empty-greeting {
@@ -488,6 +501,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 18px;
+  overflow: hidden;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .message-content {
