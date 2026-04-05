@@ -14,7 +14,7 @@ export const useServiceStore = defineStore('service', () => {
   const port = ref(18789)
   const pid = ref<number | null>(null)
   const uptime = ref(0)
-  const contextUsage = ref(35)
+  const contextUsage = ref(0)
   const lastError = ref<string | null>(null)
   
   // 是否正在操作

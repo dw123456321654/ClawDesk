@@ -71,28 +71,21 @@
           {{ connectionStatusText }}
         </span>
       </div>
-      <div class="status-right">
+      <div class="status-right" v-if="isConnected && contextUsage.percentage > 0">
         <span 
           class="status-item context-display" 
           :class="contextStatusClass"
           @click="handleContextClick"
         >
-          上下文: {{ contextUsage.percentage }}% ({{ chatStore.formatContext() }})
+          上下文: {{ contextUsage.percentage }}%
         </span>
       </div>
     </div>
     
     <!-- 上下文警告横幅 -->
-    <div class="context-warning" v-if="chatStore.shouldWarn && !chatStore.shouldAlert">
+    <div class="context-warning" v-if="isConnected && chatStore.shouldWarn && !chatStore.shouldAlert">
       <n-alert type="warning" size="small" closable>
         ⚠️ 上下文使用率较高 ({{ contextUsage.percentage }}%)，建议压缩或新开会话
-      </n-alert>
-    </div>
-    
-    <!-- 连接状态 -->
-    <div class="connection-status" v-if="!isConnected">
-      <n-alert type="warning" size="small">
-        未连接到 Gateway，请先启动服务
       </n-alert>
     </div>
   </div>
