@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { NCard, NForm, NFormItem, NInput, NSelect, NSwitch, NButton, NSpace, useMessage } from 'naive-ui'
+import { ref, watch, onMounted, computed } from 'vue'
+import { NCard, NForm, NFormItem, NInput, NSelect, NSwitch, NButton, NSpace, NAvatar, NGrid, NGi, useMessage, useDialog } from 'naive-ui'
 import { isEnabled, enable, disable } from '@tauri-apps/plugin-autostart'
+import { useRoleStore } from '@/stores/role'
+import { PRESET_AVATARS } from '@/types/role'
+import type { Role } from '@/types/role'
 
 const message = useMessage()
+const dialog = useDialog()
+const roleStore = useRoleStore()
 
 // 设置表单
 const formValue = ref({
@@ -23,6 +28,38 @@ const formValue = ref({
     autoSaveCheckpoint: true,
     checkpointInterval: '5'
   }
+})
+
+// 角色配置
+const selectedRoleId = ref(roleStore.currentRole.id)
+const selectedRole = computed(() => {
+  return roleStore.availableRoles.find(r => r.id === selectedRoleId.value)
+})
+
+const roleConfig = ref({
+  nickname: '',
+  avatar: '',
+  greeting: ''
+})
+
+// 监听选中角色变化
+watch(selectedRoleId, (roleId) => {
+  const role = roleStore.availableRoles.find(r => r.id === roleId)
+  if (role) {
+    roleConfig.value = {
+      nickname: role.nickname,
+      avatar: role.avatar,
+      greeting: role.greeting || ''
+    }
+  }
+}, { immediate: true })
+
+// 角色选项
+const roleOptions = computed(() => {
+  return roleStore.availableRoles.map(role => ({
+    label: `${role.nickname} (${role.name})`,
+    value: role.id
+  }))
 })
 
 const languageOptions = [
@@ -72,6 +109,46 @@ watch(() => formValue.value.general.autoStart, async (enabled) => {
   }
 })
 
+// 保存角色配置
+const handleSaveRoleConfig = () => {
+  if (!selectedRoleId.value) return
+  
+  roleStore.updateRoleConfig(selectedRoleId.value, {
+    nickname: roleConfig.value.nickname,
+    avatar: roleConfig.value.avatar,
+    greeting: roleConfig.value.greeting
+  })
+  
+  message.success('角色配置已保存')
+}
+
+// 重置角色配置
+const handleResetRoleConfig = () => {
+  dialog.warning({
+    title: '重置角色配置',
+    content: '确定要重置该角色的配置吗？将恢复为默认设置。',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      if (!selectedRoleId.value) return
+      
+      roleStore.resetRoleConfig(selectedRoleId.value)
+      
+      // 更新表单
+      const role = roleStore.availableRoles.find(r => r.id === selectedRoleId.value)
+      if (role) {
+        roleConfig.value = {
+          nickname: role.nickname,
+          avatar: role.avatar,
+          greeting: role.greeting || ''
+        }
+      }
+      
+      message.success('已重置为默认配置')
+    }
+  })
+}
+
 // 保存设置
 const handleSave = () => {
   // 保存到 localStorage
@@ -95,6 +172,69 @@ const handleCancel = () => {
 <template>
   <div class="settings-view">
     <h2 class="settings-title">⚙️ 设置</h2>
+    
+    <!-- 角色配置 -->
+    <n-card title="角色配置" size="small" class="settings-card">
+      <n-form label-placement="left" label-width="80">
+        <n-form-item label="选择角色">
+          <n-select
+            v-model:value="selectedRoleId"
+            :options="roleOptions"
+            style="width: 220px;"
+          />
+        </n-form-item>
+        
+        <n-form-item label="花名">
+          <n-input
+            v-model:value="roleConfig.nickname"
+            placeholder="输入自定义花名"
+            style="width: 200px;"
+          />
+          <span v-if="selectedRole?.isCustom" class="custom-badge">已自定义</span>
+        </n-form-item>
+        
+        <n-form-item label="头像">
+          <div class="avatar-selector">
+            <div class="current-avatar">
+              <n-avatar :size="48" :src="roleConfig.avatar" />
+            </div>
+            <div class="avatar-list">
+              <div 
+                v-for="avatar in PRESET_AVATARS" 
+                :key="avatar"
+                class="avatar-option"
+                :class="{ active: roleConfig.avatar === avatar }"
+                @click="roleConfig.avatar = avatar"
+              >
+                <n-avatar :size="32" :src="avatar" />
+              </div>
+            </div>
+          </div>
+        </n-form-item>
+        
+        <n-form-item label="问候语">
+          <n-input
+            v-model:value="roleConfig.greeting"
+            type="textarea"
+            placeholder="输入专属问候语"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+            style="width: 100%;"
+          />
+        </n-form-item>
+        
+        <n-form-item label="">
+          <n-space>
+            <n-button type="primary" @click="handleSaveRoleConfig">保存配置</n-button>
+            <n-button 
+              @click="handleResetRoleConfig" 
+              :disabled="!selectedRole?.isCustom"
+            >
+              重置为默认
+            </n-button>
+          </n-space>
+        </n-form-item>
+      </n-form>
+    </n-card>
     
     <!-- 通用设置 -->
     <n-card title="通用设置" size="small" class="settings-card">
@@ -213,5 +353,49 @@ const handleCancel = () => {
   margin-left: 8px;
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+.custom-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: rgba(255, 107, 53, 0.2);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #ff6b35;
+}
+
+.avatar-selector {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  
+  .current-avatar {
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+  }
+  
+  .avatar-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .avatar-option {
+    padding: 4px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &:hover {
+      border-color: var(--border-secondary);
+    }
+    
+    &.active {
+      border-color: #ff6b35;
+      background: rgba(255, 107, 53, 0.1);
+    }
+  }
 }
 </style>

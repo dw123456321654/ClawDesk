@@ -11,7 +11,24 @@ export interface Role {
   emoji: string          // emoji 备用
   tags: string[]         // 性格标签
   greeting?: string      // 专属问候语
+  isCustom?: boolean     // 是否已自定义
+  originalNickname?: string  // 原始花名（自定义前）
+  originalAvatar?: string    // 原始头像（自定义前）
+  originalGreeting?: string  // 原始问候语（自定义前）
 }
+
+/**
+ * 预设头像列表
+ */
+export const PRESET_AVATARS = [
+  '/avatars/main-agent.png',
+  '/avatars/product-manager.png',
+  '/avatars/project-manager.png',
+  '/avatars/architect.png',
+  '/avatars/developer.png',
+  '/avatars/tester.png',
+  '/avatars/ui-designer.png'
+]
 
 /**
  * 预设角色列表
