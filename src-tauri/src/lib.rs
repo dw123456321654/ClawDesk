@@ -282,14 +282,14 @@ fn get_gateway_uptime_seconds() -> Option<u64> {
 
 /// 读取配置
 #[tauri::command]
-async fn read_config(key: String) -> Result<serde_json::Value, String> {
+async fn read_config(_key: String) -> Result<serde_json::Value, String> {
     // TODO: 实现配置读取
     Ok(serde_json::json!(null))
 }
 
 /// 写入配置
 #[tauri::command]
-async fn write_config(key: String, value: serde_json::Value) -> Result<(), String> {
+async fn write_config(_key: String, _value: serde_json::Value) -> Result<(), String> {
     // TODO: 实现配置写入
     Ok(())
 }
@@ -297,14 +297,24 @@ async fn write_config(key: String, value: serde_json::Value) -> Result<(), Strin
 /// 保存任务检查点
 #[tauri::command]
 async fn save_task_checkpoint(
-    project_path: String,
+    task_id: String,
     task_data: serde_json::Value,
 ) -> Result<String, String> {
     use std::fs;
     use std::path::PathBuf;
     
-    let task_dir = PathBuf::from(&project_path).join(".clawdesk");
-    let task_file = task_dir.join("task.json");
+    // 获取用户主目录
+    let home_dir = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default())
+    } else {
+        dirs::home_dir().unwrap_or_default()
+    };
+    
+    // 保存到 ~/.openclaw/workspace/tasks/{task-id}.json
+    let task_dir = home_dir.join(".openclaw").join("workspace").join("tasks");
+    let task_file = task_dir.join(format!("{}.json", task_id));
     
     // 创建目录
     if !task_dir.exists() {
@@ -324,11 +334,24 @@ async fn save_task_checkpoint(
 
 /// 读取任务检查点
 #[tauri::command]
-async fn load_task_checkpoint(project_path: String) -> Result<serde_json::Value, String> {
+async fn load_task_checkpoint(task_id: String) -> Result<serde_json::Value, String> {
     use std::fs;
     use std::path::PathBuf;
     
-    let task_file = PathBuf::from(&project_path).join(".clawdesk/task.json");
+    // 获取用户主目录
+    let home_dir = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default())
+    } else {
+        dirs::home_dir().unwrap_or_default()
+    };
+    
+    let task_file = home_dir
+        .join(".openclaw")
+        .join("workspace")
+        .join("tasks")
+        .join(format!("{}.json", task_id));
     
     if !task_file.exists() {
         return Ok(serde_json::json!(null));
@@ -341,6 +364,44 @@ async fn load_task_checkpoint(project_path: String) -> Result<serde_json::Value,
         .map_err(|e| format!("解析失败: {}", e))?;
     
     Ok(task_data)
+}
+
+/// 列出所有任务检查点
+#[tauri::command]
+async fn list_task_checkpoints() -> Result<serde_json::Value, String> {
+    use std::fs;
+    use std::path::PathBuf;
+    
+    // 获取用户主目录
+    let home_dir = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default())
+    } else {
+        dirs::home_dir().unwrap_or_default()
+    };
+    
+    let task_dir = home_dir.join(".openclaw").join("workspace").join("tasks");
+    
+    if !task_dir.exists() {
+        return Ok(serde_json::json!([]));
+    }
+    
+    let mut checkpoints = Vec::new();
+    
+    let entries = fs::read_dir(&task_dir)
+        .map_err(|e| format!("读取目录失败: {}", e))?;
+    
+    for entry in entries.flatten() {
+        if let Some(name) = entry.file_name().to_str() {
+            if name.ends_with(".json") {
+                let task_id = name.trim_end_matches(".json").to_string();
+                checkpoints.push(task_id);
+            }
+        }
+    }
+    
+    Ok(serde_json::json!(checkpoints))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -363,7 +424,8 @@ pub fn run() {
             read_config,
             write_config,
             save_task_checkpoint,
-            load_task_checkpoint
+            load_task_checkpoint,
+            list_task_checkpoints
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

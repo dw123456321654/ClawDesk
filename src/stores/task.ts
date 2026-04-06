@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onScopeDispose } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'abandoned'
 
@@ -40,6 +41,7 @@ export interface Task {
 
 const STORAGE_KEY = 'clawdesk-tasks'
 const CURRENT_TASK_KEY = 'clawdesk-current-task'
+const CHECKPOINT_INTERVAL = 5 * 60 * 1000 // 5分钟
 
 export const useTaskStore = defineStore('task', () => {
   // 当前任务 ID
@@ -47,6 +49,9 @@ export const useTaskStore = defineStore('task', () => {
   
   // 任务列表
   const tasks = ref<Task[]>(loadTasks())
+  
+  // 定时器 ID
+  let checkpointTimer: ReturnType<typeof setInterval> | null = null
   
   // 当前任务
   const currentTask = computed(() => {
@@ -103,6 +108,85 @@ export const useTaskStore = defineStore('task', () => {
     return currentTask.value.checkpoints.find(c => c.status === 'in_progress') || null
   })
   
+  // ========== 检查点保存 ==========
+  
+  /**
+   * 保存检查点到文件
+   */
+  async function saveCheckpointToFile(task: Task): Promise<string | null> {
+    try {
+      const result = await invoke<string>('save_task_checkpoint', {
+        taskId: task.taskId,
+        taskData: task
+      })
+      console.log(`检查点已保存: ${result}`)
+      return result
+    } catch (e) {
+      console.error('保存检查点失败:', e)
+      return null
+    }
+  }
+  
+  /**
+   * 从文件加载检查点
+   */
+  async function loadCheckpointFromFile(taskId: string): Promise<Task | null> {
+    try {
+      const result = await invoke<Task>('load_task_checkpoint', { taskId })
+      return result
+    } catch (e) {
+      console.error('加载检查点失败:', e)
+      return null
+    }
+  }
+  
+  /**
+   * 启动定时自动保存
+   */
+  function startAutoSave() {
+    if (checkpointTimer) {
+      clearInterval(checkpointTimer)
+    }
+    
+    checkpointTimer = setInterval(() => {
+      if (currentTask.value && currentTask.value.status === 'in_progress') {
+        saveCheckpointToFile(currentTask.value)
+        saveToStorage()
+      }
+    }, CHECKPOINT_INTERVAL)
+    
+    console.log('定时自动保存已启动（每5分钟）')
+  }
+  
+  /**
+   * 停止定时自动保存
+   */
+  function stopAutoSave() {
+    if (checkpointTimer) {
+      clearInterval(checkpointTimer)
+      checkpointTimer = null
+      console.log('定时自动保存已停止')
+    }
+  }
+  
+  // 监听任务状态，自动启动/停止定时保存
+  watch(
+    () => currentTask.value?.status,
+    (status) => {
+      if (status === 'in_progress') {
+        startAutoSave()
+      } else {
+        stopAutoSave()
+      }
+    },
+    { immediate: true }
+  )
+  
+  // 组件销毁时清理定时器
+  onScopeDispose(() => {
+    stopAutoSave()
+  })
+  
   // ========== 任务生命周期方法 ==========
   
   /**
@@ -151,6 +235,8 @@ export const useTaskStore = defineStore('task', () => {
       task.updatedAt = new Date().toISOString()
       currentTaskId.value = taskId
       saveToStorage()
+      // 保存检查点到文件
+      saveCheckpointToFile(task)
       return true
     }
     return false
@@ -213,6 +299,8 @@ export const useTaskStore = defineStore('task', () => {
       task.completedSteps = task.checkpoints.filter(c => c.status === 'completed').length
       task.updatedAt = new Date().toISOString()
       saveToStorage() // 步骤完成后立即保存
+      // 保存检查点到文件
+      saveCheckpointToFile(task)
     }
   }
   
@@ -242,6 +330,8 @@ export const useTaskStore = defineStore('task', () => {
       currentTaskId.value = null
       saveCurrentTaskId(null)
       saveToStorage() // 任务完成后立即保存
+      // 保存最终检查点
+      saveCheckpointToFile(task)
     }
   }
   
@@ -259,6 +349,8 @@ export const useTaskStore = defineStore('task', () => {
         task.context.decisions.push(`失败原因: ${reason}`)
       }
       saveToStorage()
+      // 保存检查点
+      saveCheckpointToFile(task)
     }
   }
   
@@ -373,6 +465,10 @@ export const useTaskStore = defineStore('task', () => {
     checkForUnfinishedTask,
     getTasksByStatus,
     getTaskById,
+    
+    // 检查点
+    saveCheckpointToFile,
+    loadCheckpointFromFile,
     
     // 维护
     cleanupCompletedTasks,
