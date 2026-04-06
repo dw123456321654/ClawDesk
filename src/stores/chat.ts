@@ -8,6 +8,7 @@ export interface ChatMessage {
   timestamp: number
   pending?: boolean
   tokens?: number // 消息使用的 token 数
+  refreshing?: boolean // 是否正在刷新
 }
 
 // 上下文使用情况
@@ -331,6 +332,31 @@ export const useChatStore = defineStore('chat', () => {
   }
   
   /**
+   * 设置消息的刷新状态
+   */
+  function setMessageRefreshing(msgId: string, refreshing: boolean) {
+    if (!currentSession.value) return
+    const msg = currentSession.value.messages.find(m => m.id === msgId)
+    if (msg) {
+      msg.refreshing = refreshing
+      saveToLocalStorage()
+    }
+  }
+  
+  /**
+   * 移除消息
+   */
+  function removeMessage(msgId: string) {
+    if (!currentSession.value) return
+    const index = currentSession.value.messages.findIndex(m => m.id === msgId)
+    if (index > -1) {
+      currentSession.value.messages.splice(index, 1)
+      currentSession.value.updatedAt = Date.now()
+      saveToLocalStorage()
+    }
+  }
+  
+  /**
    * 获取当前会话的 sessionKey
    */
   function getSessionKey(): string {
@@ -450,6 +476,8 @@ export const useChatStore = defineStore('chat', () => {
     recalculateTokens,
     estimateTokens,
     formatContext,
-    getSessionKey
+    getSessionKey,
+    setMessageRefreshing,
+    removeMessage
   }
 })

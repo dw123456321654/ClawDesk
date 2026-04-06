@@ -29,6 +29,17 @@
             <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
           </div>
           <div class="message-text" v-html="formatContent(msg.content)"></div>
+          <!-- AI 回复操作按钮 -->
+          <div v-if="msg.role === 'assistant' && !msg.pending" class="message-actions">
+            <n-button quaternary size="tiny" @click="handleRefresh(msg)" :loading="msg.refreshing" title="重新生成">
+              <template #icon><n-icon><RefreshOutline /></n-icon></template>
+              刷新
+            </n-button>
+            <n-button quaternary size="tiny" @click="handleCopy(msg.content)" title="复制内容">
+              <template #icon><n-icon><CopyOutline /></n-icon></template>
+              复制
+            </n-button>
+          </div>
         </div>
       </div>
       
@@ -124,7 +135,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, nextTick, watch, onMounted } from 'vue'
 import { NInput, NButton, NIcon, NAlert, useMessage, useDialog } from 'naive-ui'
-import { SendOutline, ContractOutline, AddOutline } from '@vicons/ionicons5'
+import { SendOutline, ContractOutline, AddOutline, RefreshOutline, CopyOutline } from '@vicons/ionicons5'
 import { GatewayClient, ChatMessage, getGatewayClient } from '@/utils/gateway'
 import { useServiceStore } from '@/stores/service'
 import { useChatStore } from '@/stores/chat'
@@ -504,6 +515,71 @@ function handleNewSession() {
   message.success('已创建新会话')
 }
 
+// 刷新回复
+async function handleRefresh(msg: ChatMessage) {
+  if (!isConnected.value || isWaiting.value) return
+  
+  // 找到这条回复对应的用户问题（上一条用户消息）
+  const msgIndex = chatStore.messages.findIndex(m => m.id === msg.id)
+  if (msgIndex <= 0) {
+    message.error('找不到对应的用户问题')
+    return
+  }
+  
+  // 向前查找用户消息
+  let userMsgIndex = msgIndex - 1
+  while (userMsgIndex >= 0 && chatStore.messages[userMsgIndex].role !== 'user') {
+    userMsgIndex--
+  }
+  
+  if (userMsgIndex < 0) {
+    message.error('找不到对应的用户问题')
+    return
+  }
+  
+  const userMsg = chatStore.messages[userMsgIndex]
+  const userQuestion = userMsg.content
+  
+  // 确认提示
+  dialog.warning({
+    title: '重新生成回复',
+    content: '确定要重新生成这条回复吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      // 设置刷新中状态
+      chatStore.setMessageRefreshing(msg.id, true)
+      
+      // 移除旧回复
+      chatStore.removeMessage(msg.id)
+      
+      // 重新发送问题
+      chatStore.setWaiting(true)
+      
+      try {
+        if (gatewayClient?.isConnected()) {
+          await gatewayClient.sendMessage(userQuestion, chatStore.getSessionKey())
+        }
+      } catch (error) {
+        console.error('[Chat] Refresh error:', error)
+        message.error('刷新失败: ' + String(error))
+        chatStore.setWaiting(false)
+      }
+    }
+  })
+}
+
+// 复制内容
+function handleCopy(content: string) {
+  navigator.clipboard.writeText(content)
+    .then(() => {
+      message.success('已复制到剪贴板')
+    })
+    .catch(() => {
+      message.error('复制失败')
+    })
+}
+
 // 键盘事件
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -703,6 +779,23 @@ onUnmounted(() => {
     code {
       background: none;
       padding: 0;
+    }
+  }
+}
+
+// 消息操作按钮
+.message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-secondary);
+  
+  :deep(.n-button) {
+    font-size: 12px;
+    
+    .n-button__icon {
+      margin-right: 4px;
     }
   }
 }

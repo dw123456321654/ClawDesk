@@ -26,6 +26,13 @@ watch(theme, (newTheme) => {
 
 // 启动时检测 OpenClaw
 onMounted(async () => {
+  // 调试模式：通过 ?install=1 强制显示安装引导
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('install') === '1') {
+    openclawInstalled.value = false
+    return
+  }
+  
   const result = await checkOpenClawInstalled()
   openclawInstalled.value = result.installed
 })

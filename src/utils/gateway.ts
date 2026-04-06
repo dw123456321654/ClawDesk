@@ -299,8 +299,10 @@ export class GatewayClient {
     }
 
     // 转换为 ChatMessage 格式
+    // 使用时间戳+随机数确保 ID 唯一
+    const uniqueId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const chatMsg: ChatMessage = {
-      id: String(message.id || payload.runId || this.nextId()),
+      id: uniqueId,
       role: (message.role as 'user' | 'assistant' | 'system') || 'assistant',
       content,
       timestamp: (message.timestamp as number) || Date.now(),
@@ -321,8 +323,10 @@ export class GatewayClient {
     const data = payload.data as Record<string, unknown>
     
     if (data.type === 'text' || data.text) {
+      // 使用时间戳+随机数确保 ID 唯一
+      const uniqueId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const chatMsg: ChatMessage = {
-        id: (payload.runId as string) || this.nextId(),
+        id: uniqueId,
         role: 'assistant',
         content: (data.text as string) || (data.content as string) || '',
         timestamp: (payload.ts as number) || Date.now(),
