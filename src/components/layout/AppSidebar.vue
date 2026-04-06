@@ -14,6 +14,7 @@ import { useChatStore } from '@/stores/chat'
 import { useRoleStore } from '@/stores/role'
 import { useUIStore } from '@/stores/ui'
 import { useDialog, useMessage } from 'naive-ui'
+import QuickActions from '@/components/QuickActions.vue'
 
 const router = useRouter()
 const dialog = useDialog()
@@ -182,6 +183,9 @@ const handleMenuSelect = (key: string) => {
           </template>
         </n-button>
       </div>
+      
+      <!-- 快捷操作 -->
+      <QuickActions v-if="!collapsed" />
       
       <!-- 底部菜单 -->
       <div class="bottom-menu">
