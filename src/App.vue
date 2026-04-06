@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, zhCN, dateZhCN, darkTheme, lightTheme } from 'naive-ui'
 import MainLayout from './layouts/MainLayout.vue'
 import InstallGuide from './components/InstallGuide.vue'
+import ExceptionMonitor from './components/ExceptionMonitor.vue'
 import { checkOpenClawInstalled } from './utils/api'
 
 // OpenClaw 安装状态
@@ -67,7 +68,10 @@ window.__clawdesk_theme__ = theme
         <InstallGuide v-else-if="openclawInstalled === false" @installed="onInstalled" />
         
           <!-- 已安装 -->
-          <MainLayout v-else />
+          <template v-else>
+            <ExceptionMonitor />
+            <MainLayout />
+          </template>
         </n-notification-provider>
       </n-dialog-provider>
     </n-message-provider>
