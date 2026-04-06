@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
-import { NCard, NForm, NFormItem, NInput, NSelect, NSwitch, NButton, NSpace, NAvatar, NGrid, NGi, useMessage, useDialog } from 'naive-ui'
+import { NCard, NForm, NFormItem, NInput, NSelect, NSwitch, NButton, NSpace, NAvatar, useMessage, useDialog } from 'naive-ui'
 import { isEnabled, enable, disable } from '@tauri-apps/plugin-autostart'
 import { useRoleStore } from '@/stores/role'
 import { PRESET_AVATARS } from '@/types/role'
-import type { Role } from '@/types/role'
 
 const message = useMessage()
 const dialog = useDialog()

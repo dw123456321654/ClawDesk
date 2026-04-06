@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue'
 import { 
   NButton, 
-  NSpace, 
   NTabs, 
   NTabPane,
   NEmpty,
@@ -15,8 +14,7 @@ import {
 import {
   PlayOutline,
   TrashOutline,
-  EyeOutline,
-  RefreshOutline
+  EyeOutline
 } from '@vicons/ionicons5'
 import { useTaskStore, type TaskStatus } from '@/stores/task'
 
@@ -32,6 +30,7 @@ const tasksByStatus = computed(() => {
   
   return {
     all: all,
+    pending: all.filter(t => t.status === 'pending'),
     in_progress: all.filter(t => t.status === 'in_progress'),
     completed: all.filter(t => t.status === 'completed'),
     failed: all.filter(t => t.status === 'failed'),

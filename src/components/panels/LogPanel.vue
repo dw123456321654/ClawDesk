@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { 
   NButton, 
   NSpace, 
   NSelect, 
   NEmpty, 
   NIcon,
-  NScrollbar,
   useMessage
 } from 'naive-ui'
 import {
@@ -15,14 +14,11 @@ import {
   RefreshOutline
 } from '@vicons/ionicons5'
 import { useLogStore, type LogLevel } from '@/stores/log'
-import { useServiceStore } from '@/stores/service'
 
 const logStore = useLogStore()
-const serviceStore = useServiceStore()
 const message = useMessage()
 
 const logContainer = ref<HTMLElement | null>(null)
-const autoScroll = ref(true)
 
 const levelOptions = [
   { label: '全部', value: 'all' },
@@ -82,16 +78,6 @@ const handleExport = () => {
 const handleRefresh = () => {
   // TODO: 从 Gateway 获取实际日志
   logStore.info('刷新日志', 'System')
-}
-
-// 自动滚动到底部
-const scrollToBottom = () => {
-  if (!autoScroll.value) return
-  nextTick(() => {
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    }
-  })
 }
 
 // 监听日志变化
