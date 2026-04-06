@@ -12,12 +12,13 @@ import LogPanel from '@/components/panels/LogPanel.vue'
 import TaskRecovery from '@/components/TaskRecovery.vue'
 import type { Task } from '@/stores/task'
 import { useServiceStore } from '@/stores/service'
+import { useUIStore } from '@/stores/ui'
 
 const message = useMessage()
 const serviceStore = useServiceStore()
+const uiStore = useUIStore()
 
-// 右侧面板当前标签
-const activePanel = ref('service')
+// 右侧面板标签列表
 const panels = [
   { key: 'service', label: '服务管理' },
   { key: 'task', label: '任务进度' },
@@ -96,20 +97,20 @@ onMounted(async () => {
             <n-button
               v-for="panel in panels"
               :key="panel.key"
-              :type="activePanel === panel.key ? 'primary' : 'default'"
+              :type="uiStore.activePanel === panel.key ? 'primary' : 'default'"
               size="small"
-              @click="activePanel = panel.key"
+              @click="uiStore.setActivePanel(panel.key)"
             >
               {{ panel.label }}
             </n-button>
           </div>
           
           <div class="panel-content">
-            <ServicePanel v-if="activePanel === 'service'" />
-            <TaskPanel v-else-if="activePanel === 'task'" />
-            <TaskManagePanel v-else-if="activePanel === 'taskManage'" />
-            <LogPanel v-else-if="activePanel === 'log'" />
-            <HelpPanel v-else-if="activePanel === 'help'" />
+            <ServicePanel v-if="uiStore.activePanel === 'service'" />
+            <TaskPanel v-else-if="uiStore.activePanel === 'task'" />
+            <TaskManagePanel v-else-if="uiStore.activePanel === 'taskManage'" />
+            <LogPanel v-else-if="uiStore.activePanel === 'log'" />
+            <HelpPanel v-else-if="uiStore.activePanel === 'help'" />
           </div>
         </n-layout-sider>
       </n-layout>

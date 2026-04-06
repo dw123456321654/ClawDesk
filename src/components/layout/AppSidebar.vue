@@ -12,6 +12,7 @@ import {
 } from '@vicons/ionicons5'
 import { useChatStore } from '@/stores/chat'
 import { useRoleStore } from '@/stores/role'
+import { useUIStore } from '@/stores/ui'
 import { useDialog, useMessage } from 'naive-ui'
 
 const router = useRouter()
@@ -19,6 +20,7 @@ const dialog = useDialog()
 const message = useMessage()
 const chatStore = useChatStore()
 const roleStore = useRoleStore()
+const uiStore = useUIStore()
 const collapsed = ref(false)
 
 // 会话列表右键菜单
@@ -108,6 +110,10 @@ const handleMenuSelect = (key: string) => {
   activeKey.value = key
   if (key === 'settings') {
     router.push('/settings')
+  } else if (key === 'help') {
+    // 切换右侧面板到帮助标签
+    uiStore.setActivePanel('help')
+    router.push('/')
   } else {
     router.push('/')
   }
