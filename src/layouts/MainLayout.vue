@@ -13,10 +13,14 @@ import TaskRecovery from '@/components/TaskRecovery.vue'
 import type { Task } from '@/stores/task'
 import { useServiceStore } from '@/stores/service'
 import { useUIStore } from '@/stores/ui'
+import { useTaskStore } from '@/stores/task'
+import { useChatStore } from '@/stores/chat'
 
 const message = useMessage()
 const serviceStore = useServiceStore()
 const uiStore = useUIStore()
+const taskStore = useTaskStore()
+const chatStore = useChatStore()
 
 // 右侧面板标签列表
 const panels = [
@@ -41,20 +45,80 @@ const checkTask = (task: Task) => {
 defineExpose({ checkTask })
 
 // 继续任务
-const handleContinueTask = () => {
-  message.info('正在恢复任务上下文...')
-  // TODO: 加载任务上下文到 AI 会话
+const handleContinueTask = async () => {
+  if (!unfinishedTask.value) return
+  
+  const task = unfinishedTask.value
+  
+  // 设置为当前任务
+  taskStore.currentTaskId = task.taskId
+  
+  // 切换到任务进度面板
+  uiStore.setActivePanel('task')
+  
+  message.success('正在恢复任务上下文...')
+  
+  // 构建恢复提示消息
+  const completedStepsList = task.checkpoints
+    .filter(c => c.status === 'completed')
+    .map(c => `✅ ${c.title || `步骤 ${c.step}`}`)
+    .join('\n')
+  
+  const pendingStepsList = task.checkpoints
+    .filter(c => c.status !== 'completed')
+    .map(c => `⏳ ${c.title || `步骤 ${c.step}`}`)
+    .join('\n')
+  
+  const currentStep = task.checkpoints.find(c => c.status === 'in_progress')
+  
+  const recoveryMessage = `📋 **任务恢复**
+
+**任务名称**: ${task.taskDescription}
+
+**进度**: ${task.completedSteps}/${task.totalSteps} 步骤已完成
+
+**已完成步骤**:
+${completedStepsList || '无'}
+
+**待完成步骤**:
+${pendingStepsList || '无'}
+
+${currentStep ? `**当前步骤**: ${currentStep.title || `步骤 ${currentStep.step}`}` : ''}
+
+---
+请从中断点继续执行任务。`
+  
+  // 发送恢复消息到聊天
+  chatStore.addMessage({
+    id: `msg-${Date.now()}`,
+    role: 'user',
+    content: recoveryMessage,
+    timestamp: Date.now()
+  })
+  
+  // TODO: 实际发送到 AI 需要调用 Gateway API
 }
 
 // 放弃任务
 const handleAbandonTask = () => {
+  if (!unfinishedTask.value) return
+  
+  taskStore.abandonTask(unfinishedTask.value.taskId)
   message.warning('任务已放弃')
-  // TODO: 更新任务状态为 abandoned
 }
 
-// 启动时检查是否需要自动启动 Gateway
+// 启动时检查未完成任务
 onMounted(async () => {
-  // 检查是否通过 --auto-start 参数启动
+  // 1. 检查未完成任务
+  const unfinished = taskStore.checkForUnfinishedTask()
+  if (unfinished) {
+    // 延迟显示，等待 UI 加载完成
+    setTimeout(() => {
+      checkTask(unfinished)
+    }, 500)
+  }
+  
+  // 2. 检查是否需要自动启动 Gateway
   const urlParams = new URLSearchParams(window.location.search)
   const isAutoStart = urlParams.has('autoStart') || 
     localStorage.getItem('clawdesk-autoStartGateway') === 'true'
