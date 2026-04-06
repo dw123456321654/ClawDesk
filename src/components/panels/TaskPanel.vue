@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { NProgress, NIcon, NEmpty, NTag } from 'naive-ui'
 import { useTaskStore } from '@/stores/task'
+import { useUIStore } from '@/stores/ui'
 import {
   CheckmarkCircleOutline,
   TimeOutline,
@@ -10,6 +11,22 @@ import {
 } from '@vicons/ionicons5'
 
 const taskStore = useTaskStore()
+const uiStore = useUIStore()
+
+// 监听任务状态，自动切换到任务进度面板
+watch(
+  () => taskStore.currentTask,
+  (newTask, oldTask) => {
+    // 当有新任务开始执行时，自动切换到任务进度面板
+    if (newTask && newTask.status === 'in_progress') {
+      // 如果之前没有任务，或者新任务ID不同，说明是新任务
+      if (!oldTask || oldTask.taskId !== newTask.taskId) {
+        uiStore.setActivePanel('task')
+      }
+    }
+  },
+  { immediate: false }
+)
 
 // 进度状态
 const progressStatus = computed((): 'error' | 'success' | undefined => {
