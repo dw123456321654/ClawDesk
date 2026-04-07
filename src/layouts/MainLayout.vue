@@ -10,6 +10,7 @@ import HelpPanel from '@/components/panels/HelpPanel.vue'
 import TaskManagePanel from '@/components/panels/TaskManagePanel.vue'
 import LogPanel from '@/components/panels/LogPanel.vue'
 import TaskRecovery from '@/components/TaskRecovery.vue'
+import QuickActions from '@/components/QuickActions.vue'
 import type { Task } from '@/stores/task'
 import { useServiceStore } from '@/stores/service'
 import { useUIStore } from '@/stores/ui'
@@ -176,6 +177,9 @@ onMounted(async () => {
             <LogPanel v-else-if="uiStore.activePanel === 'log'" />
             <HelpPanel v-else-if="uiStore.activePanel === 'help'" />
           </div>
+          
+          <!-- 快捷操作 -->
+          <QuickActions />
         </n-layout-sider>
       </n-layout>
       
@@ -210,6 +214,8 @@ onMounted(async () => {
 
 .right-panel {
   background-color: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-tabs {
@@ -255,9 +261,9 @@ onMounted(async () => {
 }
 
 .panel-content {
+  flex: 1;
   padding: 16px;
   overflow-y: auto;
-  height: calc(100% - 56px);
   background: var(--bg-secondary);
 }
 </style>

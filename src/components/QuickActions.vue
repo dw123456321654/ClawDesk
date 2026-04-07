@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { NButton, NIcon, useMessage, useNotification } from 'naive-ui'
 import {
   HeartOutline,
@@ -9,9 +9,19 @@ import {
 import { useServiceStore } from '@/stores/service'
 import { open } from '@tauri-apps/plugin-shell'
 
+console.log('[QuickActions] 组件加载')
+
 const message = useMessage()
 const notification = useNotification()
 const serviceStore = useServiceStore()
+
+console.log('[QuickActions] message:', message)
+console.log('[QuickActions] notification:', notification)
+console.log('[QuickActions] serviceStore:', serviceStore)
+
+onMounted(() => {
+  console.log('[QuickActions] 组件已挂载')
+})
 
 const loading = ref({
   health: false,
@@ -91,11 +101,11 @@ const formatUptime = (seconds: number): string => {
       size="small"
       :loading="loading.health"
       @click="handleHealthCheck"
-      title="健康检查"
     >
       <template #icon>
         <n-icon><HeartOutline /></n-icon>
       </template>
+      健康检查
     </n-button>
     
     <n-button 
@@ -103,22 +113,22 @@ const formatUptime = (seconds: number): string => {
       size="small"
       :loading="loading.refresh"
       @click="handleRefresh"
-      title="刷新状态"
     >
       <template #icon>
         <n-icon><RefreshOutline /></n-icon>
       </template>
+      刷新
     </n-button>
     
     <n-button 
       quaternary 
       size="small"
       @click="handleOpenBrowser"
-      title="打开浏览器"
     >
       <template #icon>
         <n-icon><OpenOutline /></n-icon>
       </template>
+      打开浏览器
     </n-button>
   </div>
 </template>
@@ -126,16 +136,19 @@ const formatUptime = (seconds: number): string => {
 <style scoped lang="scss">
 .quick-actions {
   display: flex;
-  gap: 4px;
-  padding: 8px;
+  gap: 8px;
+  padding: 12px;
   border-top: 1px solid var(--border-primary);
+  background: var(--bg-primary);
   
   :deep(.n-button) {
     flex: 1;
-    height: 32px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
     
     .n-icon {
-      font-size: 16px;
+      font-size: 18px;
     }
     
     &:hover {
