@@ -106,40 +106,27 @@ const formatUptime = (seconds: number): string => {
 
 <template>
   <div class="quick-actions" @click="() => console.log('[QuickActions] 区域被点击')">
-    <n-button 
-      quaternary 
-      size="small"
-      :loading="loading.health"
+    <!-- 原生按钮测试 -->
+    <button 
+      style="flex: 1; height: 36px; cursor: pointer;"
       @click.stop="handleHealthCheck"
     >
-      <template #icon>
-        <n-icon><HeartOutline /></n-icon>
-      </template>
-      健康检查
-    </n-button>
+      ❤️ 健康检查
+    </button>
     
-    <n-button 
-      quaternary 
-      size="small"
-      :loading="loading.refresh"
+    <button 
+      style="flex: 1; height: 36px; cursor: pointer;"
       @click.stop="handleRefresh"
     >
-      <template #icon>
-        <n-icon><RefreshOutline /></n-icon>
-      </template>
-      刷新
-    </n-button>
+      🔄 刷新
+    </button>
     
-    <n-button 
-      quaternary 
-      size="small"
+    <button 
+      style="flex: 1; height: 36px; cursor: pointer;"
       @click.stop="handleOpenBrowser"
     >
-      <template #icon>
-        <n-icon><OpenOutline /></n-icon>
-      </template>
-      打开浏览器
-    </n-button>
+      🔗 打开浏览器
+    </button>
   </div>
 </template>
 
@@ -152,12 +139,16 @@ const formatUptime = (seconds: number): string => {
   background: var(--bg-primary);
   flex-shrink: 0;
   min-height: 60px;
+  position: relative;
+  z-index: 100;
+  pointer-events: auto;
   
   :deep(.n-button) {
     flex: 1;
     height: 36px;
     border-radius: var(--radius-md);
     font-size: 13px;
+    pointer-events: auto;
     
     .n-icon {
       font-size: 18px;

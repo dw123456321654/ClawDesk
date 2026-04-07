@@ -178,14 +178,14 @@ onMounted(async () => {
             <LogPanel v-else-if="uiStore.activePanel === 'log'" />
             <HelpPanel v-else-if="uiStore.activePanel === 'help'" />
           </div>
-          
-          <!-- 快捷操作 -->
-          <div class="quick-actions-wrapper">
-            <QuickActions />
-          </div>
           </div>
         </n-layout-sider>
       </n-layout>
+      
+      <!-- 快捷操作 - 固定在右侧面板底部 -->
+      <div class="quick-actions-fixed">
+        <QuickActions />
+      </div>
       
       <!-- 底部状态栏 -->
       <AppFooter />
@@ -277,9 +277,23 @@ onMounted(async () => {
   min-height: 0;
 }
 
-.quick-actions-wrapper {
-  flex-shrink: 0;
+.quick-actions-fixed {
+  position: fixed;
+  bottom: 32px; /* 与 AppFooter 高度一致 */
+  right: 0;
+  width: 320px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-primary);
+  z-index: 1000;
+}
+
+.quick-actions-fixed {
+  position: fixed;
+  bottom: 32px; /* AppFooter 高度 */
+  right: 0;
+  width: 320px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-primary);
+  z-index: 1000;
 }
 </style>
