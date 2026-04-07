@@ -7,6 +7,7 @@ import {
   OpenOutline
 } from '@vicons/ionicons5'
 import { useServiceStore } from '@/stores/service'
+import { open } from '@tauri-apps/plugin-shell'
 
 const message = useMessage()
 const notification = useNotification()
@@ -66,8 +67,6 @@ const handleOpenBrowser = async () => {
     const port = serviceStore.port || 18789
     const url = `http://localhost:${port}`
     
-    // 使用 Tauri shell 打开浏览器
-    const { open } = await import('@tauri-apps/plugin-shell')
     await open(url)
     message.success('已在浏览器中打开')
   } catch (e) {
