@@ -30,23 +30,26 @@ const loading = ref({
 
 // 健康检查
 const handleHealthCheck = async () => {
+  console.log('[QuickActions] 点击健康检查按钮')
   loading.value.health = true
   
   try {
     // 检查 Gateway 状态
+    console.log('[QuickActions] 调用 refreshStatus')
     await serviceStore.refreshStatus()
     
     const gatewayOk = serviceStore.status === 'running'
     const port = serviceStore.port
     
+    console.log('[QuickActions] 状态:', gatewayOk, port, serviceStore.uptime)
+    
     notification.info({
       title: '健康检查结果',
-      content: `Gateway 状态: ${gatewayOk ? '✅ 运行中' : '❌ 未运行'}
-端口: ${port}
-运行时间: ${formatUptime(serviceStore.uptime)}`,
+      content: `Gateway 状态: ${gatewayOk ? '✅ 运行中' : '❌ 未运行'}\n端口: ${port}\n运行时间: ${formatUptime(serviceStore.uptime)}`,
       duration: 5000
     })
   } catch (e) {
+    console.error('[QuickActions] 健康检查错误:', e)
     notification.error({
       title: '健康检查失败',
       content: String(e),
@@ -59,12 +62,15 @@ const handleHealthCheck = async () => {
 
 // 刷新状态
 const handleRefresh = async () => {
+  console.log('[QuickActions] 点击刷新按钮')
   loading.value.refresh = true
   
   try {
     await serviceStore.refreshStatus()
+    console.log('[QuickActions] 刷新成功')
     message.success('状态已刷新')
   } catch (e) {
+    console.error('[QuickActions] 刷新错误:', e)
     message.error('刷新失败: ' + String(e))
   } finally {
     loading.value.refresh = false
@@ -73,13 +79,17 @@ const handleRefresh = async () => {
 
 // 打开浏览器
 const handleOpenBrowser = async () => {
+  console.log('[QuickActions] 点击打开浏览器按钮')
   try {
     const port = serviceStore.port || 18789
     const url = `http://localhost:${port}`
     
+    console.log('[QuickActions] 打开 URL:', url)
     await open(url)
+    console.log('[QuickActions] 打开成功')
     message.success('已在浏览器中打开')
   } catch (e) {
+    console.error('[QuickActions] 打开浏览器错误:', e)
     message.error('打开失败: ' + String(e))
   }
 }
@@ -95,12 +105,12 @@ const formatUptime = (seconds: number): string => {
 </script>
 
 <template>
-  <div class="quick-actions">
+  <div class="quick-actions" @click="() => console.log('[QuickActions] 区域被点击')">
     <n-button 
       quaternary 
       size="small"
       :loading="loading.health"
-      @click="handleHealthCheck"
+      @click.stop="handleHealthCheck"
     >
       <template #icon>
         <n-icon><HeartOutline /></n-icon>
@@ -112,7 +122,7 @@ const formatUptime = (seconds: number): string => {
       quaternary 
       size="small"
       :loading="loading.refresh"
-      @click="handleRefresh"
+      @click.stop="handleRefresh"
     >
       <template #icon>
         <n-icon><RefreshOutline /></n-icon>
@@ -123,7 +133,7 @@ const formatUptime = (seconds: number): string => {
     <n-button 
       quaternary 
       size="small"
-      @click="handleOpenBrowser"
+      @click.stop="handleOpenBrowser"
     >
       <template #icon>
         <n-icon><OpenOutline /></n-icon>
@@ -140,6 +150,8 @@ const formatUptime = (seconds: number): string => {
   padding: 12px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-primary);
+  flex-shrink: 0;
+  min-height: 60px;
   
   :deep(.n-button) {
     flex: 1;

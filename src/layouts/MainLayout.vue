@@ -158,7 +158,8 @@ onMounted(async () => {
           :native-scrollbar="false"
           bordered
         >
-          <div class="panel-tabs">
+          <div class="right-panel-inner">
+            <div class="panel-tabs">
             <n-button
               v-for="panel in panels"
               :key="panel.key"
@@ -179,7 +180,10 @@ onMounted(async () => {
           </div>
           
           <!-- 快捷操作 -->
-          <QuickActions />
+          <div class="quick-actions-wrapper">
+            <QuickActions />
+          </div>
+          </div>
         </n-layout-sider>
       </n-layout>
       
@@ -214,8 +218,13 @@ onMounted(async () => {
 
 .right-panel {
   background-color: var(--bg-primary);
+}
+
+.right-panel-inner {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
 .panel-tabs {
@@ -265,5 +274,12 @@ onMounted(async () => {
   padding: 16px;
   overflow-y: auto;
   background: var(--bg-secondary);
+  min-height: 0;
+}
+
+.quick-actions-wrapper {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-primary);
 }
 </style>
