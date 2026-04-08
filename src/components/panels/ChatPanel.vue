@@ -311,18 +311,22 @@ async function connectGateway() {
     console.log('[Chat] Gateway status:', status)
     clientConnected.value = status === 'connected'
     
-    // 连接成功后获取上下文使用量
-    if (status === 'connected' && gatewayClient) {
-      const usage = await gatewayClient.getSessionUsage()
-      if (usage) {
-        console.log('[Chat] Context usage from Gateway:', usage)
-        chatStore.updateContextUsage(usage.used, usage.max)
-      }
-    }
-    
     // 服务断开时触发异常
     if (status === 'disconnected' && isWaiting.value) {
       showExceptionNotification('service_disconnected')
+    }
+  }
+  
+  // 处理 Gateway 推送的上下文百分比
+  gatewayClient.onContextPercent = (percent: number) => {
+    if (percent < 0) {
+      // -1 表示 compact 后未知，显示 "?"
+      console.log('[Chat] Context unknown after compact')
+    } else {
+      console.log('[Chat] Context percent from Gateway:', percent + '%')
+      const max = chatStore.contextUsage.max
+      const used = Math.round((percent / 100) * max)
+      chatStore.updateContextUsage(used, max)
     }
   }
   
@@ -527,29 +531,12 @@ function handleNewSession() {
   message.success('已创建新会话')
 }
 
-// 更新上下文使用量（优先从 Gateway 获取真实值）
+// 更新上下文使用量（依赖 Gateway 推送的真实值）
 async function updateContextUsage() {
-  if (!gatewayClient?.isConnected()) {
-    // 未连接时使用本地估算
-    chatStore.recalculateTokens()
-    return
-  }
-  
-  try {
-    // 使用完整的 sessionKey 获取真实上下文使用量
-    const usage = await gatewayClient.getSessionUsage(chatStore.getFullSessionKey())
-    if (usage) {
-      chatStore.updateContextUsage(usage.used, usage.max)
-      console.log('[Chat] Context usage from Gateway:', usage)
-    } else {
-      // Gateway 没有返回数据，使用本地估算
-      chatStore.recalculateTokens()
-    }
-  } catch (error) {
-    console.warn('[Chat] Failed to get context usage from Gateway:', error)
-    // 出错时使用本地估算
-    chatStore.recalculateTokens()
-  }
+  // Gateway 不提供 API 获取上下文使用量
+  // 依赖 sessions.changed 事件推送
+  // 本地估算不准确（不知道 Gateway 已 compact 掉哪些消息），不使用
+  console.log('[Chat] updateContextUsage: Gateway 不提供此 API，依赖事件推送')
 }
 
 // 刷新回复

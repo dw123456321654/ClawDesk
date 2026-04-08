@@ -256,6 +256,9 @@ export class GatewayClient {
         this.handleChatEvent(msg)
       } else if (eventType === 'agent') {
         this.handleAgentEvent(msg)
+      } else if (eventType === 'sessions.changed' || eventType === 'session') {
+        // 处理会话变更事件（包括 compact）
+        this.handleSessionEvent(msg)
       }
       return
     }
@@ -413,6 +416,22 @@ export class GatewayClient {
   }
 
   /**
+   * 处理会话事件（包括 compact）
+   */
+  private handleSessionEvent(msg: GatewayMessage) {
+    const payload = msg.payload as Record<string, unknown>
+    console.log('[Gateway] Session event:', JSON.stringify(payload))
+    
+    // 检查是否是 compact 事件
+    if (payload.reason === 'compact' && payload.compacted === true) {
+      console.log('[Gateway] Session compacted, context should be updated')
+      // Compact 后，本地估算已不准确，需要等待用户发送消息后重新计算
+      // 或者显示 "?" 提示用户上下文已重置
+      this.onContextPercent?.(-1) // -1 表示未知，需要显示 "?"
+    }
+  }
+
+  /**
    * 发送消息
    */
   async sendMessage(content: string, sessionKey?: string): Promise<void> {
@@ -522,11 +541,11 @@ export class GatewayClient {
   }
 
   /**
-   * 获取会话使用情况（包括上下文 token 使用量）
-   * 注意：Gateway 不提供此 API，始终返回 null，使用本地估算
+   * 获取会话使用情况（等待 Gateway 推送真实值）
+   * 注意：本地估算不准确，不使用。依赖 chat.compact 事件推送。
    */
   async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
-    console.log('[Gateway] getSessionUsage: Gateway 不提供上下文 token API，使用本地估算')
+    // Gateway 不提供此 API，依赖事件推送
     return null
   }
 
