@@ -550,6 +550,9 @@ export class GatewayClient {
         key: sessionKey
       }) as Record<string, unknown>
       
+      console.log('[Gateway] sessions.get result keys:', Object.keys(result))
+      console.log('[Gateway] sessions.get messages count:', result.messages ? (result.messages as unknown[]).length : 0)
+      
       if (result.messages && Array.isArray(result.messages)) {
         // 计算消息的 token 数
         let total = 10000 // 系统提示词基础开销
