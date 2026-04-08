@@ -371,13 +371,19 @@ export const useChatStore = defineStore('chat', () => {
   }
   
   /**
-   * 获取当前会话的 sessionKey
-   * 注意：Gateway 期望的格式是 'main' 或 'agent:main:main'
-   * ClawDesk 本地的会话 ID（如 session-xxx）不被 Gateway 识别
+   * 获取当前会话的 sessionKey（用于 chat.send）
+   * Gateway 期望 'main' 作为主会话
    */
   function getSessionKey(): string {
-    // 始终使用 'main' 作为 sessionKey，确保消息发送到主会话
     return 'main'
+  }
+  
+  /**
+   * 获取当前会话的完整 sessionKey（用于 sessions.usage 等 API）
+   * Gateway 期望 'agent:main:main' 格式
+   */
+  function getFullSessionKey(): string {
+    return 'agent:main:main'
   }
   
   // ========== 持久化 ==========
@@ -495,6 +501,7 @@ export const useChatStore = defineStore('chat', () => {
     estimateTokens,
     formatContext,
     getSessionKey,
+    getFullSessionKey,
     setMessageRefreshing,
     removeMessage
   }

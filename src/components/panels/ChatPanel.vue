@@ -500,8 +500,9 @@ async function handleCompact() {
   
   try {
     await gatewayClient.sendMessage('/compact')
-    // 更新本地上下文估算值
-    chatStore.compactContext()
+    // 等待 Gateway 处理后重新获取真实值
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await updateContextUsage()
     message.success('上下文已压缩')
   } catch (error) {
     console.error('[Chat] Compact error:', error)
@@ -526,7 +527,8 @@ async function updateContextUsage() {
   }
   
   try {
-    const usage = await gatewayClient.getSessionUsage(chatStore.getSessionKey())
+    // 使用完整的 sessionKey 获取真实上下文使用量
+    const usage = await gatewayClient.getSessionUsage(chatStore.getFullSessionKey())
     if (usage) {
       chatStore.updateContextUsage(usage.used, usage.max)
       console.log('[Chat] Context usage from Gateway:', usage)
