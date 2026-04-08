@@ -509,20 +509,24 @@ export class GatewayClient {
    * 获取会话使用情况（包括上下文 token 使用量）
    */
   async getSessionUsage(sessionKey: string = 'main'): Promise<{ used: number; max: number; percentage: number } | null> {
+    console.log('[Gateway] getSessionUsage called with sessionKey:', sessionKey)
+    
     try {
       const result = await this.request('sessions.usage', { sessionKey }) as {
         contextTokens?: { used?: number; max?: number }
       }
       
+      console.log('[Gateway] sessions.usage result:', JSON.stringify(result, null, 2))
+      
       if (result?.contextTokens) {
         const used = result.contextTokens.used || 0
         const max = result.contextTokens.max || 200000
-        return {
-          used,
-          max,
-          percentage: max > 0 ? Math.round((used / max) * 100) : 0
-        }
+        const percentage = max > 0 ? Math.round((used / max) * 100) : 0
+        console.log('[Gateway] Context usage:', { used, max, percentage })
+        return { used, max, percentage }
       }
+      
+      console.log('[Gateway] No contextTokens in result')
       return null
     } catch (error) {
       console.error('[Gateway] Get session usage error:', error)
