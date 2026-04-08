@@ -428,6 +428,16 @@ export const useChatStore = defineStore('chat', () => {
       const saved = localStorage.getItem(SESSIONS_STORAGE_KEY)
       if (saved) {
         sessions.value = JSON.parse(saved)
+        // 重置所有会话的上下文使用量为初始值
+        // 因为本地估算不准确，等待 Gateway 推送真实值
+        sessions.value.forEach(session => {
+          session.contextUsage = {
+            used: 0,
+            max: 200000,
+            percentage: 0,
+            lastUpdated: 0
+          }
+        })
       }
       
       // 如果没有会话，创建一个默认会话
@@ -435,10 +445,9 @@ export const useChatStore = defineStore('chat', () => {
         createSession('main-agent', '新会话')
       }
       
-      // 重新计算 token
-      if (currentSessionId.value) {
-        recalculateTokens()
-      }
+      // 不再自动重新计算 token，因为本地估算不准确
+      // Gateway compact 后，localStorage 中的消息数与 Gateway 实际保留的不一致
+      // 等待 Gateway 推送上下文使用量事件（sessions.changed）
     } catch (e) {
       console.error('[ChatStore] Load error:', e)
       // 出错时创建默认会话
