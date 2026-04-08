@@ -298,6 +298,20 @@ export const useChatStore = defineStore('chat', () => {
   }
   
   /**
+   * 压缩上下文（本地估算值调整）
+   * 注意：这只是本地估算值的调整，实际的压缩由 Gateway 完成
+   */
+  function compactContext() {
+    if (!currentSession.value) return
+    
+    // 估算压缩后的 token 数（假设压缩到原来的 30%）
+    const currentUsed = currentSession.value.contextUsage.used
+    const compactedUsed = Math.round(currentUsed * 0.3)
+    
+    updateContextUsage(compactedUsed)
+  }
+  
+  /**
    * 估算消息的 token 数（粗略估算：字符数 / 3）
    */
   function estimateTokens(content: string): number {
@@ -476,6 +490,7 @@ export const useChatStore = defineStore('chat', () => {
     setWaiting,
     clearMessages,
     updateContextUsage,
+    compactContext,
     recalculateTokens,
     estimateTokens,
     formatContext,

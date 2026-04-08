@@ -500,7 +500,9 @@ async function handleCompact() {
   
   try {
     await gatewayClient.sendMessage('/compact')
-    message.success('正在压缩上下文...')
+    // 更新本地上下文估算值
+    chatStore.compactContext()
+    message.success('上下文已压缩')
   } catch (error) {
     console.error('[Chat] Compact error:', error)
     message.error('压缩失败: ' + String(error))
