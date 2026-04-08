@@ -205,21 +205,7 @@ const handleRestart = () => {
       </div>
     </div>
     
-    <n-divider />
-    
-    <!-- 快捷操作 -->
-    <div class="quick-actions">
-      <h4>🔧 快捷操作</h4>
-      <n-space vertical>
-        <n-button quaternary block>🔍 健康检查</n-button>
-        <n-button quaternary block @click="serviceStore.refreshStatus">
-          📊 刷新状态
-        </n-button>
-        <n-button quaternary block :disabled="serviceStore.status !== 'running'">
-          🌐 打开浏览器面板
-        </n-button>
-      </n-space>
-    </div>
+
   </div>
 </template>
 
@@ -285,7 +271,7 @@ const handleRestart = () => {
   margin-top: 12px;
 }
 
-.config-section, .quick-actions {
+.config-section {
   h4 {
     margin: 0 0 12px 0;
     font-size: 13px;
