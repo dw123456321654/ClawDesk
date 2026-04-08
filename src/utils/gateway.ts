@@ -543,34 +543,20 @@ export class GatewayClient {
   /**
    * 获取会话使用情况（通过 sessions.get 获取消息列表计算）
    */
+  /**
+   * 获取会话上下文使用量（通过 Tauri 后端读取 session 文件）
+   */
   async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
     try {
-      // 使用 sessions.get 获取消息列表
-      const result = await this.request('sessions.get', {
-        key: sessionKey
-      }) as Record<string, unknown>
-      
-      console.log('[Gateway] sessions.get result keys:', Object.keys(result))
-      console.log('[Gateway] sessions.get messages count:', result.messages ? (result.messages as unknown[]).length : 0)
-      
-      if (result.messages && Array.isArray(result.messages)) {
-        // 计算消息的 token 数
-        let total = 10000 // 系统提示词基础开销
-        
-        for (const msg of result.messages) {
-          const content = typeof msg.content === 'string' 
-            ? msg.content 
-            : JSON.stringify(msg.content)
-          // 中文约 1.5 字符/token，英文约 4 字符/token，使用 3 作为折中
-          total += Math.ceil(content.length / 3) + 20
+      // 优先使用 Tauri 后端读取 session 文件
+      if (typeof window !== 'undefined' && window.__TAURI__) {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const result = await invoke('get_session_context_usage') as { used: number; max: number; percentage: number } | null
+        console.log('[Gateway] Tauri context usage:', result)
+        if (result && result.used > 0) {
+          return result
         }
-        
-        const max = 200000
-        const percentage = Math.round((total / max) * 100)
-        console.log('[Gateway] getSessionUsage calculated:', { total, max, percentage })
-        return { used: total, max, percentage }
       }
-      
       return null
     } catch (error) {
       console.log('[Gateway] getSessionUsage failed:', error)

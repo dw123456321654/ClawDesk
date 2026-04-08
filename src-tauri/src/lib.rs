@@ -404,6 +404,64 @@ async fn list_task_checkpoints() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!(checkpoints))
 }
 
+/// 读取会话上下文使用量
+#[tauri::command]
+async fn get_session_context_usage() -> Result<serde_json::Value, String> {
+    use std::fs;
+    use std::path::PathBuf;
+    
+    // Session 文件路径: ~/.openclaw/agents/main/sessions/agent:main:main.jsonl
+    let home_dir = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE")
+            .map(PathBuf::from)
+            .unwrap_or_default()
+    } else {
+        dirs::home_dir().unwrap_or_default()
+    };
+    
+    let session_file = home_dir
+        .join(".openclaw")
+        .join("agents")
+        .join("main")
+        .join("sessions")
+        .join("agent:main:main.jsonl");
+    
+    if !session_file.exists() {
+        return Ok(serde_json::json!(null));
+    }
+    
+    // 读取文件最后一行（包含最新的 session 元数据）
+    let content = fs::read_to_string(&session_file)
+        .map_err(|e| format!("读取会话文件失败: {}", e))?;
+    
+    // JSONL 格式，每行一个 JSON 对象
+    // 最后一行包含 contextTokens 等元数据
+    if let Some(last_line) = content.lines().last() {
+        if let Ok(session_entry) = serde_json::from_str::<serde_json::Value>(last_line) {
+            // 提取 contextTokens
+            let context_tokens = session_entry
+                .get("contextTokens")
+                .and_then(|t| t.as_u64())
+                .unwrap_or(0);
+            
+            // 默认最大 200k
+            let max_tokens = 200000u64;
+            
+            return Ok(serde_json::json!({
+                "used": context_tokens,
+                "max": max_tokens,
+                "percentage": if context_tokens > 0 {
+                    ((context_tokens as f64 / max_tokens as f64) * 100.0).round() as u64
+                } else {
+                    0
+                }
+            }));
+        }
+    }
+    
+    Ok(serde_json::json!(null))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -425,7 +483,8 @@ pub fn run() {
             write_config,
             save_task_checkpoint,
             load_task_checkpoint,
-            list_task_checkpoints
+            list_task_checkpoints,
+            get_session_context_usage
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
