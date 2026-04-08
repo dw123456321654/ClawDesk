@@ -312,10 +312,15 @@ export const useChatStore = defineStore('chat', () => {
   }
   
   /**
-   * 估算消息的 token 数（粗略估算：字符数 / 3）
+   * 估算消息的 token 数（改进版：考虑中文和工具调用）
    */
   function estimateTokens(content: string): number {
-    return Math.ceil(content.length / 3)
+    // 中文约 1.5 字符/token，英文约 4 字符/token
+    // 使用 3 作为折中
+    const baseTokens = Math.ceil(content.length / 3)
+    // 为工具调用和工具结果增加估算（通常包含更多结构化数据）
+    const toolOverhead = (content.match(/```/g) || []).length * 50
+    return baseTokens + toolOverhead
   }
   
   /**
@@ -324,14 +329,20 @@ export const useChatStore = defineStore('chat', () => {
   function recalculateTokens() {
     if (!currentSession.value) return
     let total = 0
+    
+    // 系统提示词基础开销（MEMORY.md + SOUL.md + USER.md 等）
+    total += 10000
+    
     for (const msg of currentSession.value.messages) {
       if (msg.tokens) {
         total += msg.tokens
       } else {
         total += estimateTokens(msg.content)
       }
+      // 每条消息有额外的结构开销
+      total += 20
     }
-    total += 5000 // 系统提示词估算
+    
     updateContextUsage(total)
   }
   

@@ -242,15 +242,19 @@ export class GatewayClient {
 
     // 处理事件
     if (msg.type === 'event') {
-      console.log('[Gateway] Event:', msg.event, msg.payload)
-      this.eventHandlers.forEach(h => h(msg.event || '', msg.payload))
+      const eventType = msg.event || ''
+      // 只打印关键事件，减少日志噪音
+      if (!['tick', 'health', 'heartbeat'].includes(eventType)) {
+        console.log('[Gateway] Event:', eventType, JSON.stringify(msg.payload).slice(0, 500))
+      }
+      this.eventHandlers.forEach(h => h(eventType, msg.payload))
 
       // 处理聊天相关事件
-      if (msg.event === 'agent.message' || msg.event === 'chat.message') {
+      if (eventType === 'agent.message' || eventType === 'chat.message') {
         this.handleChatEvent(msg)
-      } else if (msg.event === 'chat') {
+      } else if (eventType === 'chat') {
         this.handleChatEvent(msg)
-      } else if (msg.event === 'agent') {
+      } else if (eventType === 'agent') {
         this.handleAgentEvent(msg)
       }
       return
@@ -519,42 +523,11 @@ export class GatewayClient {
 
   /**
    * 获取会话使用情况（包括上下文 token 使用量）
+   * 注意：Gateway 不提供此 API，始终返回 null，使用本地估算
    */
   async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
-    console.log('[Gateway] getSessionUsage called, sessionKey:', sessionKey)
-    
-    try {
-      // 方法1: 尝试 sessions.get API
-      const sessionResult = await this.request('sessions.get', { key: sessionKey }) as Record<string, unknown>
-      console.log('[Gateway] sessions.get result:', JSON.stringify(sessionResult, null, 2))
-      
-      // 检查是否包含 contextTokens 或 contextUsage
-      if (sessionResult.contextTokens || sessionResult.contextUsage) {
-        const ctx = (sessionResult.contextTokens || sessionResult.contextUsage) as { used?: number; max?: number; percent?: number }
-        const used = ctx.used || 0
-        const max = ctx.max || 200000
-        const percentage = ctx.percent || (max > 0 ? Math.round((used / max) * 100) : 0)
-        return { used, max, percentage }
-      }
-      
-      // 方法2: 尝试 status API
-      const statusResult = await this.request('status', {}) as Record<string, unknown>
-      console.log('[Gateway] status result:', JSON.stringify(statusResult, null, 2))
-      
-      if (statusResult.context) {
-        const ctx = statusResult.context as { used?: number; max?: number; percent?: number }
-        const used = ctx.used || 0
-        const max = ctx.max || 200000
-        const percentage = ctx.percent || (max > 0 ? Math.round((used / max) * 100) : 0)
-        return { used, max, percentage }
-      }
-      
-      console.log('[Gateway] No context info found')
-      return null
-    } catch (error) {
-      console.error('[Gateway] Get session usage error:', error)
-      return null
-    }
+    console.log('[Gateway] getSessionUsage: Gateway 不提供上下文 token API，使用本地估算')
+    return null
   }
 
   /**
