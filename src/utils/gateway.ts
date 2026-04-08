@@ -61,6 +61,7 @@ export class GatewayClient {
   // 状态回调
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void
   onMessage?: (msg: ChatMessage) => void
+  onContextPercent?: (percent: number) => void
 
   constructor(url: string = 'ws://127.0.0.1:18789', token: string = '') {
     this.url = url
@@ -339,6 +340,17 @@ export class GatewayClient {
   private handleChatEvent(msg: GatewayMessage) {
     const payload = msg.payload as Record<string, unknown>
     const message = payload.message as Record<string, unknown> | undefined
+    
+    // 处理 contextPercent（如果 Gateway 推送）
+    if (payload.progress && typeof payload.progress === 'object') {
+      const progress = payload.progress as Record<string, unknown>
+      if (typeof progress.contextPercent === 'number') {
+        const percent = progress.contextPercent
+        console.log('[Gateway] Context percent from event:', percent)
+        // 通过回调通知 UI
+        this.onContextPercent?.(percent)
+      }
+    }
     
     if (!message) {
       console.log('[Gateway] No message in chat event')
