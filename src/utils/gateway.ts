@@ -509,11 +509,10 @@ export class GatewayClient {
    * 获取会话使用情况（包括上下文 token 使用量）
    */
   async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
-    console.log('[Gateway] getSessionUsage called')
+    console.log('[Gateway] getSessionUsage called, sessionKey:', sessionKey)
     
     try {
-      // sessions.usage 可能不需要参数，或者需要 key
-      // 先尝试不带参数
+      // sessions.usage 返回所有会话的用量
       const result = await this.request('sessions.usage', {}) as Record<string, unknown>
       
       console.log('[Gateway] sessions.usage result:', JSON.stringify(result, null, 2))
@@ -527,10 +526,12 @@ export class GatewayClient {
       
       // 查找匹配 sessionKey 的会话
       if (result.sessions && Array.isArray(result.sessions)) {
-        const session = result.sessions.find((s: { key?: string }) => s.key === sessionKey)
+        const session = (result.sessions as Array<{ key?: string; contextTokens?: { used?: number; max?: number } }>)
+          .find(s => s.key === sessionKey)
         contextTokens = session?.contextTokens
+        console.log('[Gateway] Found session:', session?.key, 'contextTokens:', contextTokens)
       } else if (result.contextTokens) {
-        contextTokens = result.contextTokens
+        contextTokens = result.contextTokens as { used?: number; max?: number }
       }
       
       if (contextTokens) {
@@ -541,7 +542,7 @@ export class GatewayClient {
         return { used, max, percentage }
       }
       
-      console.log('[Gateway] No contextTokens found in result')
+      console.log('[Gateway] No contextTokens found in result for sessionKey:', sessionKey)
       return null
     } catch (error) {
       console.error('[Gateway] Get session usage error:', error)

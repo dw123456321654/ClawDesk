@@ -307,9 +307,18 @@ async function connectGateway() {
   gatewayClient.setToken(token)
   gatewayClient.setPort(port)
   
-  gatewayClient.onStatusChange = (status) => {
+  gatewayClient.onStatusChange = async (status) => {
     console.log('[Chat] Gateway status:', status)
     clientConnected.value = status === 'connected'
+    
+    // 连接成功后获取上下文使用量
+    if (status === 'connected' && gatewayClient) {
+      const usage = await gatewayClient.getSessionUsage()
+      if (usage) {
+        console.log('[Chat] Context usage from Gateway:', usage)
+        chatStore.updateContextUsage(usage.used, usage.max)
+      }
+    }
     
     // 服务断开时触发异常
     if (status === 'disconnected' && isWaiting.value) {
