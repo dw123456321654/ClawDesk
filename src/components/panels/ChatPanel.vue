@@ -405,7 +405,7 @@ async function connectGateway() {
     }
     
     // 重新计算 token（优先从 Gateway 获取真实值）
-    await updateContextUsage()
+    void updateContextUsage()
     scrollToBottom()
   }
   
