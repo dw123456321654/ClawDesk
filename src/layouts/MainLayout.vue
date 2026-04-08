@@ -10,6 +10,7 @@ import HelpPanel from '@/components/panels/HelpPanel.vue'
 import TaskManagePanel from '@/components/panels/TaskManagePanel.vue'
 import LogPanel from '@/components/panels/LogPanel.vue'
 import TaskRecovery from '@/components/TaskRecovery.vue'
+import QuickActions from '@/components/QuickActions.vue'
 import type { Task } from '@/stores/task'
 import { useServiceStore } from '@/stores/service'
 import { useUIStore } from '@/stores/ui'
@@ -181,6 +182,11 @@ onMounted(async () => {
         </n-layout-sider>
       </n-layout>
       
+      <!-- 快捷操作 -->
+      <div class="quick-actions-fixed">
+        <QuickActions />
+      </div>
+      
       <!-- 底部状态栏 -->
       <AppFooter />
     </n-layout>
@@ -271,5 +277,13 @@ onMounted(async () => {
   min-height: 0;
 }
 
-
+.quick-actions-fixed {
+  position: fixed;
+  bottom: 32px;
+  right: 0;
+  width: 320px;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  z-index: 1000;
+}
 </style>
