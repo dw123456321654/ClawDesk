@@ -52,6 +52,11 @@ export class GatewayClient {
   // Token 重试机制
   private pendingDeviceTokenRetry = false
   private deviceTokenRetryBudgetUsed = false
+  
+  // 自动重连（指数退避）
+  private closed = false
+  private backoffMs = 800
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   // 状态回调
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void
@@ -127,6 +132,11 @@ export class GatewayClient {
         clearTimeout(connectTimeout)
         this.connected = false
         this.onStatusChange?.('disconnected')
+        
+        // 非主动关闭时自动重连
+        if (!this.closed) {
+          this.scheduleReconnect()
+        }
       }
     })
   }
@@ -155,6 +165,7 @@ export class GatewayClient {
         if (!this.connected) {
           clearTimeout(connectTimeout)
           this.connected = true
+          this.backoffMs = 800  // 重置退避延迟
           this.onStatusChange?.('connected')
           console.log('[Gateway] Connected successfully')
           connectResolve?.()
@@ -268,7 +279,6 @@ export class GatewayClient {
 
     // 检查是否有存储的 device token
     const storedToken = loadDeviceAuthToken({ deviceId, role })
-    const authDeviceToken = this.pendingDeviceTokenRetry && storedToken ? storedToken.token : undefined
     
     // 如果没有显式 token 且有存储的 token，使用存储的 token
     const resolvedToken = token || storedToken?.token || ''
@@ -450,15 +460,42 @@ export class GatewayClient {
   }
 
   /**
-   * 断开连接
+   * 自动重连（指数退避）
    */
-  disconnect() {
+  private scheduleReconnect() {
+    if (this.closed) return
+    
+    const delay = this.backoffMs
+    this.backoffMs = Math.min(Math.round(this.backoffMs * 1.7), 15000)
+    
+    console.log(`[Gateway] Reconnecting in ${delay}ms...`)
+    this.reconnectTimer = setTimeout(() => {
+      void this.connect()
+    }, delay)
+  }
+
+  /**
+   * 断开连接（不再重连）
+   */
+  stop() {
+    this.closed = true
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
     if (this.ws) {
       this.ws.close()
       this.ws = null
     }
     this.connected = false
     this.pendingRequests.clear()
+  }
+
+  /**
+   * 断开连接（兼容旧接口）
+   */
+  disconnect() {
+    this.stop()
   }
 
   /**
