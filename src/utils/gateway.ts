@@ -10,6 +10,11 @@ import {
   buildSignaturePayload,
   getPlatform
 } from './deviceIdentity'
+import {
+  loadDeviceAuthToken,
+  storeDeviceAuthToken,
+  clearDeviceAuthToken
+} from './deviceAuth'
 
 export interface GatewayMessage {
   type: 'req' | 'res' | 'event'
@@ -43,6 +48,10 @@ export class GatewayClient {
   private eventHandlers: EventHandler[] = []
   private connected = false
   private deviceIdentity: DeviceIdentity | null = null
+  
+  // Token 重试机制
+  private pendingDeviceTokenRetry = false
+  private deviceTokenRetryBudgetUsed = false
 
   // 状态回调
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void
@@ -151,9 +160,25 @@ export class GatewayClient {
           connectResolve?.()
 
           // 处理 hello-ok 中的设备 token
-          const payload = msg.payload as { auth?: { deviceToken?: string } }
-          if (payload?.auth?.deviceToken) {
-            console.log('[Gateway] Received device token')
+          const payload = msg.payload as {
+            auth?: {
+              deviceToken?: string
+              role?: string
+              scopes?: string[]
+            }
+          }
+          if (payload?.auth?.deviceToken && this.deviceIdentity) {
+            storeDeviceAuthToken({
+              deviceId: this.deviceIdentity.deviceId,
+              role: payload.auth.role || 'operator',
+              token: payload.auth.deviceToken,
+              scopes: payload.auth.scopes
+            })
+            console.log('[Gateway] Stored device token for role:', payload.auth.role)
+            
+            // 重置重试状态
+            this.pendingDeviceTokenRetry = false
+            this.deviceTokenRetryBudgetUsed = false
           }
         }
 
@@ -179,6 +204,24 @@ export class GatewayClient {
           const errorCode = msg.error?.details?.code || msg.error?.code || 'UNKNOWN'
           const errorMsg = msg.error?.message || '连接失败'
           console.error('[Gateway] Connect failed:', errorCode, errorMsg)
+          
+          // 处理 AUTH_TOKEN_MISMATCH：清除存储的 token 并重试一次
+          if (errorCode === 'AUTH_TOKEN_MISMATCH' && this.deviceIdentity && !this.deviceTokenRetryBudgetUsed) {
+            console.log('[Gateway] Token mismatch, clearing stored token and retrying...')
+            clearDeviceAuthToken({
+              deviceId: this.deviceIdentity.deviceId,
+              role: 'operator'
+            })
+            this.pendingDeviceTokenRetry = true
+            this.deviceTokenRetryBudgetUsed = true
+            
+            // 关闭当前连接并重试
+            this.ws?.close()
+            this.ws = null
+            setTimeout(() => void this.connect(), 1000)
+            return
+          }
+          
           connectReject?.(new Error(`${errorMsg} (${errorCode})`))
         }
         return
@@ -223,6 +266,13 @@ export class GatewayClient {
     const mode = 'webchat'
     const timestamp = Date.now()
 
+    // 检查是否有存储的 device token
+    const storedToken = loadDeviceAuthToken({ deviceId, role })
+    const authDeviceToken = this.pendingDeviceTokenRetry && storedToken ? storedToken.token : undefined
+    
+    // 如果没有显式 token 且有存储的 token，使用存储的 token
+    const resolvedToken = token || storedToken?.token || ''
+
     // 构建签名 payload (v2格式)
     const signaturePayload = buildSignaturePayload({
       deviceId,
@@ -231,7 +281,7 @@ export class GatewayClient {
       role,
       scopes,
       timestamp,
-      token,
+      token: resolvedToken,
       nonce
     })
 
