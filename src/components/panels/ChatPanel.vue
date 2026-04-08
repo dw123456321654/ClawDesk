@@ -295,6 +295,9 @@ function handleRetry() {
   exceptionMonitor.clearTaskMonitor()
 }
 
+// 断开通知计时器
+let disconnectTimer: ReturnType<typeof setTimeout> | null = null
+
 // 连接 Gateway
 async function connectGateway() {
   const config = await readOpenClawConfig()
@@ -313,6 +316,11 @@ async function connectGateway() {
     
     // 连接成功后获取上下文使用量
     if (status === 'connected' && gatewayClient) {
+      // 清除断开计时器
+      if (disconnectTimer) {
+        clearTimeout(disconnectTimer)
+        disconnectTimer = null
+      }
       const usage = await gatewayClient.getSessionUsage()
       if (usage) {
         console.log('[Chat] Context usage from Gateway:', usage)
@@ -320,9 +328,13 @@ async function connectGateway() {
       }
     }
     
-    // 服务断开时触发异常
+    // 服务断开超过 3 秒才弹出通知（避免自动重连时的误报）
     if (status === 'disconnected' && isWaiting.value) {
-      showExceptionNotification('service_disconnected')
+      disconnectTimer = setTimeout(() => {
+        if (!clientConnected.value) {
+          showExceptionNotification('service_disconnected')
+        }
+      }, 3000)
     }
   }
   
