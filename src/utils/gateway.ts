@@ -508,25 +508,40 @@ export class GatewayClient {
   /**
    * 获取会话使用情况（包括上下文 token 使用量）
    */
-  async getSessionUsage(sessionKey: string = 'main'): Promise<{ used: number; max: number; percentage: number } | null> {
-    console.log('[Gateway] getSessionUsage called with sessionKey:', sessionKey)
+  async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
+    console.log('[Gateway] getSessionUsage called')
     
     try {
-      const result = await this.request('sessions.usage', { sessionKey }) as {
-        contextTokens?: { used?: number; max?: number }
-      }
+      // sessions.usage 可能不需要参数，或者需要 key
+      // 先尝试不带参数
+      const result = await this.request('sessions.usage', {}) as Record<string, unknown>
       
       console.log('[Gateway] sessions.usage result:', JSON.stringify(result, null, 2))
       
-      if (result?.contextTokens) {
-        const used = result.contextTokens.used || 0
-        const max = result.contextTokens.max || 200000
+      // 尝试多种可能的响应格式
+      // 格式1: { sessions: [{ key, contextTokens }] }
+      // 格式2: { contextTokens: { used, max } }
+      // 格式3: { usage: { contextTokens } }
+      
+      let contextTokens: { used?: number; max?: number } | undefined
+      
+      // 查找匹配 sessionKey 的会话
+      if (result.sessions && Array.isArray(result.sessions)) {
+        const session = result.sessions.find((s: { key?: string }) => s.key === sessionKey)
+        contextTokens = session?.contextTokens
+      } else if (result.contextTokens) {
+        contextTokens = result.contextTokens
+      }
+      
+      if (contextTokens) {
+        const used = contextTokens.used || 0
+        const max = contextTokens.max || 200000
         const percentage = max > 0 ? Math.round((used / max) * 100) : 0
         console.log('[Gateway] Context usage:', { used, max, percentage })
         return { used, max, percentage }
       }
       
-      console.log('[Gateway] No contextTokens in result')
+      console.log('[Gateway] No contextTokens found in result')
       return null
     } catch (error) {
       console.error('[Gateway] Get session usage error:', error)
