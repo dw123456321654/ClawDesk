@@ -541,12 +541,38 @@ export class GatewayClient {
   }
 
   /**
-   * 获取会话使用情况（等待 Gateway 推送真实值）
-   * 注意：本地估算不准确，不使用。依赖 chat.compact 事件推送。
+   * 获取会话使用情况（通过 sessions.get 获取消息列表计算）
    */
   async getSessionUsage(sessionKey: string = 'agent:main:main'): Promise<{ used: number; max: number; percentage: number } | null> {
-    // Gateway 不提供此 API，依赖事件推送
-    return null
+    try {
+      // 使用 sessions.get 获取消息列表
+      const result = await this.request('sessions.get', {
+        key: sessionKey
+      }) as Record<string, unknown>
+      
+      if (result.messages && Array.isArray(result.messages)) {
+        // 计算消息的 token 数
+        let total = 10000 // 系统提示词基础开销
+        
+        for (const msg of result.messages) {
+          const content = typeof msg.content === 'string' 
+            ? msg.content 
+            : JSON.stringify(msg.content)
+          // 中文约 1.5 字符/token，英文约 4 字符/token，使用 3 作为折中
+          total += Math.ceil(content.length / 3) + 20
+        }
+        
+        const max = 200000
+        const percentage = Math.round((total / max) * 100)
+        console.log('[Gateway] getSessionUsage calculated:', { total, max, percentage })
+        return { used: total, max, percentage }
+      }
+      
+      return null
+    } catch (error) {
+      console.log('[Gateway] getSessionUsage failed:', error)
+      return null
+    }
   }
 
   /**

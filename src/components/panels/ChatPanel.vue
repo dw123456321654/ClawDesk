@@ -311,6 +311,15 @@ async function connectGateway() {
     console.log('[Chat] Gateway status:', status)
     clientConnected.value = status === 'connected'
     
+    // 连接成功后获取上下文使用量
+    if (status === 'connected' && gatewayClient) {
+      const usage = await gatewayClient.getSessionUsage()
+      if (usage) {
+        console.log('[Chat] Context usage from Gateway:', usage)
+        chatStore.updateContextUsage(usage.used, usage.max)
+      }
+    }
+    
     // 服务断开时触发异常
     if (status === 'disconnected' && isWaiting.value) {
       showExceptionNotification('service_disconnected')
@@ -320,8 +329,15 @@ async function connectGateway() {
   // 处理 Gateway 推送的上下文百分比
   gatewayClient.onContextPercent = (percent: number) => {
     if (percent < 0) {
-      // -1 表示 compact 后未知，显示 "?"
-      console.log('[Chat] Context unknown after compact')
+      // -1 表示 compact 后未知，重新获取
+      console.log('[Chat] Context unknown after compact, fetching...')
+      if (gatewayClient) {
+        gatewayClient.getSessionUsage().then(usage => {
+          if (usage) {
+            chatStore.updateContextUsage(usage.used, usage.max)
+          }
+        })
+      }
     } else {
       console.log('[Chat] Context percent from Gateway:', percent + '%')
       const max = chatStore.contextUsage.max
