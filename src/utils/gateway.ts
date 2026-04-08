@@ -419,6 +419,31 @@ export class GatewayClient {
   }
 
   /**
+   * 获取会话使用情况（包括上下文 token 使用量）
+   */
+  async getSessionUsage(sessionKey: string = 'main'): Promise<{ used: number; max: number; percentage: number } | null> {
+    try {
+      const result = await this.request('sessions.usage', { sessionKey }) as {
+        contextTokens?: { used?: number; max?: number }
+      }
+      
+      if (result?.contextTokens) {
+        const used = result.contextTokens.used || 0
+        const max = result.contextTokens.max || 200000
+        return {
+          used,
+          max,
+          percentage: max > 0 ? Math.round((used / max) * 100) : 0
+        }
+      }
+      return null
+    } catch (error) {
+      console.error('[Gateway] Get session usage error:', error)
+      return null
+    }
+  }
+
+  /**
    * 订阅事件
    */
   on(_event: string, handler: EventHandler) {

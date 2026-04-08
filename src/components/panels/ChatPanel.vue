@@ -404,8 +404,8 @@ async function connectGateway() {
       console.log('[Task] 任务失败:', taskFailed)
     }
     
-    // 重新计算 token
-    chatStore.recalculateTokens()
+    // 重新计算 token（优先从 Gateway 获取真实值）
+    await updateContextUsage()
     scrollToBottom()
   }
   
@@ -445,8 +445,8 @@ async function sendMessage() {
     showExceptionNotification('task_timeout')
   })
   
-  // 重新计算 token
-  chatStore.recalculateTokens()
+  // 重新计算 token（优先从 Gateway 获取真实值）
+  await updateContextUsage()
   scrollToBottom()
   
   try {
@@ -515,6 +515,30 @@ function handleNewSession() {
   const currentRoleId = chatStore.currentRoleId || roleStore.currentRole.id
   chatStore.createSession(currentRoleId)
   message.success('已创建新会话')
+}
+
+// 更新上下文使用量（优先从 Gateway 获取真实值）
+async function updateContextUsage() {
+  if (!gatewayClient?.isConnected()) {
+    // 未连接时使用本地估算
+    chatStore.recalculateTokens()
+    return
+  }
+  
+  try {
+    const usage = await gatewayClient.getSessionUsage(chatStore.getSessionKey())
+    if (usage) {
+      chatStore.updateContextUsage(usage.used, usage.max)
+      console.log('[Chat] Context usage from Gateway:', usage)
+    } else {
+      // Gateway 没有返回数据，使用本地估算
+      chatStore.recalculateTokens()
+    }
+  } catch (error) {
+    console.warn('[Chat] Failed to get context usage from Gateway:', error)
+    // 出错时使用本地估算
+    chatStore.recalculateTokens()
+  }
 }
 
 // 刷新回复
