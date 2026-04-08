@@ -524,11 +524,23 @@ export class GatewayClient {
     console.log('[Gateway] getSessionUsage called, sessionKey:', sessionKey)
     
     try {
-      // 方法1: 尝试 status API（包含 context 信息）
+      // 方法1: 尝试 sessions.get API
+      const sessionResult = await this.request('sessions.get', { key: sessionKey }) as Record<string, unknown>
+      console.log('[Gateway] sessions.get result:', JSON.stringify(sessionResult, null, 2))
+      
+      // 检查是否包含 contextTokens 或 contextUsage
+      if (sessionResult.contextTokens || sessionResult.contextUsage) {
+        const ctx = (sessionResult.contextTokens || sessionResult.contextUsage) as { used?: number; max?: number; percent?: number }
+        const used = ctx.used || 0
+        const max = ctx.max || 200000
+        const percentage = ctx.percent || (max > 0 ? Math.round((used / max) * 100) : 0)
+        return { used, max, percentage }
+      }
+      
+      // 方法2: 尝试 status API
       const statusResult = await this.request('status', {}) as Record<string, unknown>
       console.log('[Gateway] status result:', JSON.stringify(statusResult, null, 2))
       
-      // status 可能直接包含 context 信息
       if (statusResult.context) {
         const ctx = statusResult.context as { used?: number; max?: number; percent?: number }
         const used = ctx.used || 0
@@ -537,37 +549,7 @@ export class GatewayClient {
         return { used, max, percentage }
       }
       
-      // 方法2: sessions.usage 返回所有会话的用量
-      const result = await this.request('sessions.usage', {}) as Record<string, unknown>
-      
-      console.log('[Gateway] sessions.usage result:', JSON.stringify(result, null, 2))
-      
-      // 尝试多种可能的响应格式
-      // 格式1: { sessions: [{ key, contextTokens }] }
-      // 格式2: { contextTokens: { used, max } }
-      // 格式3: { usage: { contextTokens } }
-      
-      let contextTokens: { used?: number; max?: number } | undefined
-      
-      // 查找匹配 sessionKey 的会话
-      if (result.sessions && Array.isArray(result.sessions)) {
-        const session = (result.sessions as Array<{ key?: string; contextTokens?: { used?: number; max?: number } }>)
-          .find(s => s.key === sessionKey)
-        contextTokens = session?.contextTokens
-        console.log('[Gateway] Found session:', session?.key, 'contextTokens:', contextTokens)
-      } else if (result.contextTokens) {
-        contextTokens = result.contextTokens as { used?: number; max?: number }
-      }
-      
-      if (contextTokens) {
-        const used = contextTokens.used || 0
-        const max = contextTokens.max || 200000
-        const percentage = max > 0 ? Math.round((used / max) * 100) : 0
-        console.log('[Gateway] Context usage:', { used, max, percentage })
-        return { used, max, percentage }
-      }
-      
-      console.log('[Gateway] No contextTokens found in result for sessionKey:', sessionKey)
+      console.log('[Gateway] No context info found')
       return null
     } catch (error) {
       console.error('[Gateway] Get session usage error:', error)
