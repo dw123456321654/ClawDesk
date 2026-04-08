@@ -512,7 +512,20 @@ export class GatewayClient {
     console.log('[Gateway] getSessionUsage called, sessionKey:', sessionKey)
     
     try {
-      // sessions.usage 返回所有会话的用量
+      // 方法1: 尝试 status API（包含 context 信息）
+      const statusResult = await this.request('status', {}) as Record<string, unknown>
+      console.log('[Gateway] status result:', JSON.stringify(statusResult, null, 2))
+      
+      // status 可能直接包含 context 信息
+      if (statusResult.context) {
+        const ctx = statusResult.context as { used?: number; max?: number; percent?: number }
+        const used = ctx.used || 0
+        const max = ctx.max || 200000
+        const percentage = ctx.percent || (max > 0 ? Math.round((used / max) * 100) : 0)
+        return { used, max, percentage }
+      }
+      
+      // 方法2: sessions.usage 返回所有会话的用量
       const result = await this.request('sessions.usage', {}) as Record<string, unknown>
       
       console.log('[Gateway] sessions.usage result:', JSON.stringify(result, null, 2))
